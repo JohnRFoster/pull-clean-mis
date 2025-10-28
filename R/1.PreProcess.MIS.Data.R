@@ -141,11 +141,6 @@ dat.PropKill <- read_csv(file.path(read.path, file.name))
 dat.PropKill <- distinct(dat.PropKill)
 dat.PropKill <- dplyr::rename(dat.PropKill, ALWS_AGRPROP_ID = WT_AGRPROP_ID)
 
-# Convert Dates to R Dates
-dat.PropKill$WT_WORK_DATE <- as.Date(
-  as.character(dat.PropKill$WT_WORK_DATE),
-  "%d-%b-%y"
-)
 out.name <- paste0(processed, file.name)
 write_csv(dat.PropKill, file.path(write.path, out.name))
 

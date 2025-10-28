@@ -1,11 +1,9 @@
-
 #----------------------------------
 #
 # Generate a table that has all property info
 #
 # John Foster
 #----------------------------------
-
 
 library(readr)
 library(dplyr)
@@ -29,11 +27,14 @@ county_areas <- county_areas |>
 state_abbr <- read_csv("data/stateAbbreviations.csv")
 
 all_county_info <- left_join(county_areas, state_abbr) |>
-  mutate(CNTY_NAME = toupper(CNTY_NAME),
-                ST_NAME = toupper(ST_NAME)) |>
+  mutate(CNTY_NAME = toupper(CNTY_NAME), ST_NAME = toupper(ST_NAME)) |>
   distinct()
 
-all_properties <- read_csv(paste0("data/processed/processed_fs_national_property_", pull.date, ".csv"))
+all_properties <- read_csv(paste0(
+  "data/processed/processed_fs_national_property_",
+  pull.date,
+  ".csv"
+))
 all_properties <- all_properties |>
   select(AGRP_PRP_ID, ALWS_AGRPROP_ID, PRPS_QTY, ST_NAME, CNTY_NAME) |>
   dplyr::rename(TOTAL.LAND = PRPS_QTY) |>

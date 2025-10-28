@@ -64,14 +64,14 @@ dat.Agr <- dat.Agr[dat.Agr$DA_NAME_TYPE %!in% c("small mammal", "predator"), ]
 dat.Agr <- aggregate(
   PRPS_QTY ~
     AGRP_PRP_ID +
-      ALWS_AGRPROP_ID +
-      ALWS_DA_ID +
-      PRP_NAME +
-      ST_NAME +
-      ST_GSA_STATE_CD +
-      CNTY_NAME +
-      CNTY_GSA_CNTY_CD +
-      PRPS_PROP_TYPE,
+    ALWS_AGRPROP_ID +
+    ALWS_DA_ID +
+    PRP_NAME +
+    ST_NAME +
+    ST_GSA_STATE_CD +
+    CNTY_NAME +
+    CNTY_GSA_CNTY_CD +
+    PRPS_PROP_TYPE,
   data = dat.Agr,
   FUN = max
 )
