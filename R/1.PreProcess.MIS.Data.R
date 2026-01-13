@@ -78,7 +78,27 @@ dat.Agr <- left_join(dat.Agr.take, dat.Agr.property)
 
 #dat.Agr<-dat.Agr[dat.Agr$DA_NAME=="SWINE, FERAL",]
 
-dat.Agr2 <- dat.Agr[complete.cases(dat.Agr$ST_GSA_STATE_CD), ]
+territories <- c("PUERTO RICO", "VIRGIN ISLANDS", "GUAM")
+
+all_state_codes <- dat.Agr |>
+  select(ST_NAME, ST_GSA_STATE_CD) |>
+  distinct() |>
+  filter(!ST_NAME %in% territories)
+
+territory_codes <- tibble(
+  ST_NAME = territories,
+  ST_GSA_STATE_CD = c("61", "62", "63")
+)
+
+states_and_territories <- bind_rows(all_state_codes, territory_codes)
+
+dat.Agr.ter <- left_join(
+  select(dat.Agr, -ST_GSA_STATE_CD),
+  states_and_territories,
+  by = "ST_NAME"
+)
+
+dat.Agr2 <- dat.Agr.ter[complete.cases(dat.Agr.ter$ST_GSA_STATE_CD), ]
 
 dat.Agr3 <- alter.columns(dat.Agr2)
 
