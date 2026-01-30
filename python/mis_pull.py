@@ -33,7 +33,7 @@ file_path = os.path.join(raw_dir, datetoday)
 if not os.path.exists(file_path):
     os.makedirs(file_path)
 
-    # single pull
+# single pull
 csv_name = os.path.join(file_path, "fs_national_all.csv")
 
 if os.path.exists(csv_name) and not always_pull:
