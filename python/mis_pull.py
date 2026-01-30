@@ -24,7 +24,7 @@ if sys_path is not None:
 import queries
 
 myDate = "2014-01-01"  # we do not need data prior to 2014
-always_pull = False  # override to always pull data
+always_pull = True  # override to always pull data
 
 # create output directory for today's date
 datetoday = datetime.today().strftime("%Y-%m-%d")
@@ -32,6 +32,21 @@ raw_dir = "data\\raw"
 file_path = os.path.join(raw_dir, datetoday)
 if not os.path.exists(file_path):
     os.makedirs(file_path)
+
+    # single pull
+csv_name = os.path.join(file_path, "fs_national_all.csv")
+
+if os.path.exists(csv_name) and not always_pull:
+    print(f"{csv_name} already exists, skipping damage pull.")
+else:
+    print("Pulling all data...")
+
+    df = queries.single(cursor)
+
+    print("single data pulled successfully.")
+
+    # write as csv
+    df.to_csv(csv_name, index=False)
 
 # effort pull
 csv_name = os.path.join(file_path, "fs_national_effort.csv")
@@ -108,21 +123,5 @@ else:
 
     # write as csv
     df.to_csv(csv_name, index=False)
-
-# single pull
-csv_name = os.path.join(file_path, "fs_national_all.csv")
-
-if os.path.exists(csv_name) and not always_pull:
-    print(f"{csv_name} already exists, skipping damage pull.")
-else:
-    print("Pulling all data...")
-
-    df = queries.single(cursor, myDate)
-
-    print("single data pulled successfully.")
-
-    # write as csv
-    df.to_csv(csv_name, index=False)
-
 
 connection.close()
