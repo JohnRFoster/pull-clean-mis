@@ -109,5 +109,20 @@ else:
     # write as csv
     df.to_csv(csv_name, index=False)
 
+# single pull
+csv_name = os.path.join(file_path, "fs_national_all.csv")
+
+if os.path.exists(csv_name) and not always_pull:
+    print(f"{csv_name} already exists, skipping damage pull.")
+else:
+    print("Pulling all data...")
+
+    df = queries.single(cursor, myDate)
+
+    print("single data pulled successfully.")
+
+    # write as csv
+    df.to_csv(csv_name, index=False)
+
 
 connection.close()
