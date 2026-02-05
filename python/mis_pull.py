@@ -37,7 +37,7 @@ if not os.path.exists(file_path):
 csv_name = os.path.join(file_path, "fs_national_all.csv")
 
 if os.path.exists(csv_name) and not always_pull:
-    print(f"{csv_name} already exists, skipping damage pull.")
+    print(f"{csv_name} already exists, skipping pull.")
 else:
     print("Pulling all data...")
 
@@ -47,81 +47,3 @@ else:
 
     # write as csv
     df.to_csv(csv_name, index=False)
-
-# effort pull
-csv_name = os.path.join(file_path, "fs_national_effort.csv")
-
-if os.path.exists(csv_name) and not always_pull:
-    print(f"{csv_name} already exists, skipping effort pull.")
-else:
-    print("Pulling effort data...")
-
-    df = queries.effort(cursor, myDate)
-
-    print("Effort data pulled successfully.")
-
-    # write as csv
-    df.to_csv(csv_name, index=False)
-
-# take by method pull
-csv_name = os.path.join(file_path, "fs_national_take_by_method.csv")
-
-if os.path.exists(csv_name) and not always_pull:
-    print(f"{csv_name} already exists, skipping take by method pull.")
-else:
-    print("Pulling take by method data...")
-
-    df = queries.take_by_method(cursor, myDate)
-
-    print("take by method data pulled successfully.")
-
-    # write as csv
-    df.to_csv(csv_name, index=False)
-
-# take by property pull
-csv_name = os.path.join(file_path, "fs_national_take_by_property.csv")
-
-if os.path.exists(csv_name) and not always_pull:
-    print(f"{csv_name} already exists, skipping take by property pull.")
-else:
-    print("Pulling take by property data...")
-
-    df = queries.take_by_property(cursor, myDate)
-
-    print("take by property data pulled successfully.")
-
-    # write as csv
-    df.to_csv(csv_name, index=False)
-
-
-# property pull
-csv_name = os.path.join(file_path, "fs_national_property.csv")
-
-if os.path.exists(csv_name) and not always_pull:
-    print(f"{csv_name} already exists, skipping property pull.")
-else:
-    print("Pulling property data...")
-
-    df = queries.property(cursor, myDate)
-
-    print("property data pulled successfully.")
-
-    # write as csv
-    df.to_csv(csv_name, index=False)
-
-# damage pull
-csv_name = os.path.join(file_path, "fs_national_damage.csv")
-
-if os.path.exists(csv_name) and not always_pull:
-    print(f"{csv_name} already exists, skipping damage pull.")
-else:
-    print("Pulling damage data...")
-
-    df = queries.damage(cursor, myDate)
-
-    print("damage data pulled successfully.")
-
-    # write as csv
-    df.to_csv(csv_name, index=False)
-
-connection.close()
