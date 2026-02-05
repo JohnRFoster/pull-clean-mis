@@ -35,7 +35,6 @@ pre.process.data <- function(in.dat) {
       UOM_NAME +
       WTCM_QTY +
       CMP_NAME +
-      CMP_TYPE +
       WT_WORK_DATE +
       USET_NAME,
     data = in.dat,
