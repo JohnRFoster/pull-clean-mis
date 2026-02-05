@@ -11,10 +11,14 @@ rm(list = ls())
 gc()
 
 #----get correct data pull----
-pull.date <- config::get("pull.date")
+raw_dir <- "data/raw"
+
+pull_dates <- list.files(raw_dir)
+pull_dates_num <- as.numeric(gsub("-", "", pull_dates))
+pull_date <- pull_dates[which.max(pull_dates_num)]
 
 #---- write path ----
-write.path <- file.path("data/processed", pull.date)
+write.path <- file.path("data/processed", pull_date)
 processed <- "processed_"
 
 #----Load Libraries----
@@ -131,23 +135,22 @@ corral.max <- max(trap.dat[trap.dat$CMP_NAME == "TRAPS, CORRAL", "WTCM_QTY"])
 
 trap.dat <- trap.dat[trap.dat$WTCM_QTY < corral.max, ]
 
-trap.dat |>
-  filter(CMP_NAME == "TRAPS, LIVE, FERAL HOGS") |>
-  pull(WTCM_QTY) |>
-  hist(
-    breaks = 1000,
-    main = "CMP_NAME == TRAPS, LIVE, FERAL HOGS",
-    xlab = "WTCM_QTY"
-  )
-trap.dat |>
-  filter(CMP_NAME == "TRAPS, CAGE") |>
-  pull(WTCM_QTY) |>
-  hist(breaks = 1000, main = "CMP_NAME == TRAPS, CAGE", xlab = "WTCM_QTY")
-trap.dat |>
-  filter(CMP_NAME == "TRAPS, CORRAL") |>
-  pull(WTCM_QTY) |>
-  hist(breaks = 1000, main = "CMP_NAME == TRAPS, CORRAL", xlab = "WTCM_QTY")
-
+# trap.dat |>
+#   filter(CMP_NAME == "TRAPS, LIVE, FERAL HOGS") |>
+#   pull(WTCM_QTY) |>
+#   hist(
+#     breaks = 1000,
+#     main = "CMP_NAME == TRAPS, LIVE, FERAL HOGS",
+#     xlab = "WTCM_QTY"
+#   )
+# trap.dat |>
+#   filter(CMP_NAME == "TRAPS, CAGE") |>
+#   pull(WTCM_QTY) |>
+#   hist(breaks = 1000, main = "CMP_NAME == TRAPS, CAGE", xlab = "WTCM_QTY")
+# trap.dat |>
+#   filter(CMP_NAME == "TRAPS, CORRAL") |>
+#   pull(WTCM_QTY) |>
+#   hist(breaks = 1000, main = "CMP_NAME == TRAPS, CORRAL", xlab = "WTCM_QTY")
 
 #Convert all trap types to the same type
 trap.dat[, "CMP_NAME"] <- "TRAPS, CAGE"
