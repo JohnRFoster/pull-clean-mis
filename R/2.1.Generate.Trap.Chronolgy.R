@@ -10,13 +10,6 @@
 rm(list = ls())
 gc()
 
-#----get correct data pull----
-pull.date <- config::get("pull.date")
-
-#---- write path ----
-write.path <- file.path("data/processed", pull.date)
-processed <- "processed_"
-
 #----Load Libraries----
 library(reshape2)
 library(tidyr)
@@ -26,6 +19,22 @@ library(plyr)
 library(dplyr)
 library(operators)
 
+#----get correct data pull----
+raw_dir <- "data/raw"
+
+pull_dates <- list.files(raw_dir)
+pull_dates_num <- as.numeric(gsub("-", "", pull_dates))
+pull_date <- pull_dates[which.max(pull_dates_num)]
+
+raw_data_dir <- "data/raw"
+raw_data_file <- "fs_national_all.csv"
+raw_data <- file.path(raw_data_dir, pull_date, raw_data_file)
+
+
+#---- processed path ----
+processed_path <- file.path("data/processed", pull_date)
+processed <- "processed_"
+
 #----Required Functions
 source("R/FNC.MIS.Pre.Process.R")
 source("R/FNC.MIS.calc.trap.effort.R")
@@ -34,70 +43,48 @@ source("R/FNC.MIS.calc.trap.chronology.R")
 source("R/FNC.Misc.Utilities.R")
 source("R/FNC.MIS.assign.orphen.events.R")
 
-#----Prep Data ----
-
-# Read data
-dat.Agr <- read_csv(file.path(
-  write.path,
-  "processed_fs_national_property.csv"
-))
-dat.Kill <- read_csv(file.path(
-  write.path,
-  "processed_fs_national_take_by_method.csv"
-))
-dat.Eff <- read_csv(file.path(
-  write.path,
-  "processed_fs_national_effort.csv"
-))
-dat.PropKill <- read_csv(file.path(
-  write.path,
-  "processed_fs_national_take_by_property.csv"
-))
+# look up table property acres
 lut.property.acres <- read_csv(file.path(
-  write.path,
+  processed_path,
   "processed_lut_property_acres.csv"
 ))
 
-# Restrict to properties to those with feral swine and exclude potential bias in trapping
-dat.Agr <- dat.Agr[dat.Agr$DA_NAME_TYPE %!in% c("small mammal", "rodent"), ]
+# Read data
+dat_agr_csv <- read_csv(raw_data)
+dat_agr_csv2 <- alter.column.names(dat_agr_csv)
 
-dat.Agr <- aggregate(
-  PRPS_QTY ~
-    AGRP_PRP_ID +
-    ALWS_AGRPROP_ID +
-    ALWS_DA_ID +
-    PRP_NAME +
-    ST_NAME +
-    ST_GSA_STATE_CD +
-    CNTY_NAME +
-    CNTY_GSA_CNTY_CD +
-    PRPS_PROP_TYPE,
-  data = dat.Agr,
-  FUN = max
-)
+# might not need dat_Agr??
+dat_Agr <- dat_agr_csv |>
+  group_by(
+    AGRP_PRP_ID,
+    ALWS_AGRPROP_ID,
+    ALWS_DA_ID,
+    PRP_NAME,
+    ST_NAME,
+    ST_GSA_STATE_CD,
+    CNTY_NAME,
+    CNTY_GSA_CNTY_CD,
+    PRPS_PROP_TYPE
+  ) |>
+  reframe(
+    PRPS_QTY = max(PRPS_QTY)
+  ) |>
+  mutate(unk.id = paste0(AGRP_PRP_ID, ".", ALWS_AGRPROP_ID))
 
-# Add unique id
-dat.Agr$unk.id <- paste0(dat.Agr$AGRP_PRP_ID, ".", dat.Agr$ALWS_AGRPROP_ID)
-dat.PropKill$unk.id <- paste0(
-  dat.PropKill$AGRP_PRP_ID,
-  ".",
-  dat.PropKill$ALWS_AGRPROP_ID
-)
-dat.Eff$unk.id <- paste0(dat.Eff$AGRP_PRP_ID, ".", dat.Eff$ALWS_AGRPROP_ID)
-dat.Kill$unk.id <- paste0(dat.Kill$AGRP_PRP_ID, ".", dat.Kill$ALWS_AGRPROP_ID)
-lut.property.acres$unk.id <- paste0(
-  lut.property.acres$AGRP_PRP_ID,
-  ".",
-  lut.property.acres$ALWS_AGRPROP_ID
-)
-
-#Limit based on species lut
-dat.PropKill <- dat.PropKill[dat.PropKill$unk.id %in% unique(dat.Agr$unk.id), ]
-dat.Eff <- dat.Eff[dat.Eff$unk.id %in% unique(dat.Agr$unk.id), ]
-dat.Kill <- dat.Kill[dat.Kill$unk.id %in% unique(dat.Agr$unk.id), ]
-lut.property.acres <- lut.property.acres[
-  lut.property.acres$unk.id %in% unique(dat.Agr$unk.id),
-]
+kill_by_prop <- dat_agr_csv2 |>
+  select(
+    ALWS_AGRPROP_ID,
+    AGRP_PRP_ID,
+    ST_NAME,
+    ST_GSA_STATE_CD,
+    CNTY_GSA_CNTY_CD,
+    CMP_QTY,
+    CMP_NAME,
+    TAKE,
+    WT_WORK_DATE
+  ) |>
+  distinct() |>
+  select(AGRP_PRP_ID, WT_WORK_DATE, CMP_NAME, TAKE)
 
 ##----END DATA PREP----
 
@@ -106,195 +93,202 @@ lut.property.acres <- lut.property.acres[
 
 #-- Remove properties with rodent control
 
-#Set CMP names associated with rodent control
-cmp.vec <- c(
+# Set CMP names associated with rodent control
+cmp_vec <- c(
   "RAMIK MINI BARS :HI-9 (ANTICOAG)",
   "TRAPS, SNAP (RAT, MOUSE, ETC.)"
 )
 
-prp.vec <- unique(dat.Eff[dat.Eff$CMP_NAME %in% cmp.vec, "AGRP_PRP_ID"])
+prp_vec <- dat_agr_csv2 |>
+  filter(CMP_NAME %in% cmp_vec) |>
+  pull(AGRP_PRP_ID) |>
+  unique()
 
-trap.dat <- dat.Eff[dat.Eff$AGRP_PRP_ID %!in% prp.vec, ]
+# Restrict to those with trapping
+# Generate trap type list to process
+# Dropping "TRAPS, BODY GRIP", "TRAPS, FOOTHOLD",
+#          "TRAPS, OTHER", "TRAPS, FOOTHOLD (PADDED)", "TRAPS, CULVERT"
+trap_vec <- c("TRAPS, LIVE, FERAL HOGS", "TRAPS, CAGE", "TRAPS, CORRAL")
 
+trap_dat <- dat_agr_csv2 |>
+  filter(CMP_NAME %in% trap_vec, !AGRP_PRP_ID %in% prp_vec)
 
-#--Restrict to those with trapping
-
-#Generate trap type list to process
-trap.vec <- c("TRAPS, LIVE, FERAL HOGS", "TRAPS, CAGE", "TRAPS, CORRAL")
-
-#Limit Trap Data
-trap.dat <- trap.dat[trap.dat$CMP_NAME %in% trap.vec, ]
-
-#Remove those with WTCM_QTY > max WTCM_QTY for Corral Traps
-
-corral.max <- max(trap.dat[trap.dat$CMP_NAME == "TRAPS, CORRAL", "WTCM_QTY"])
-
-trap.dat <- trap.dat[trap.dat$WTCM_QTY < corral.max, ]
-
-trap.dat |>
-  filter(CMP_NAME == "TRAPS, LIVE, FERAL HOGS") |>
-  pull(WTCM_QTY) |>
-  hist(
-    breaks = 1000,
-    main = "CMP_NAME == TRAPS, LIVE, FERAL HOGS",
-    xlab = "WTCM_QTY"
-  )
-trap.dat |>
-  filter(CMP_NAME == "TRAPS, CAGE") |>
-  pull(WTCM_QTY) |>
-  hist(breaks = 1000, main = "CMP_NAME == TRAPS, CAGE", xlab = "WTCM_QTY")
-trap.dat |>
+#Remove those with CMP_QTY > max CMP_QTY for Corral Traps
+corral.max <- trap_dat |>
   filter(CMP_NAME == "TRAPS, CORRAL") |>
-  pull(WTCM_QTY) |>
-  hist(breaks = 1000, main = "CMP_NAME == TRAPS, CORRAL", xlab = "WTCM_QTY")
+  pull(CMP_QTY) |>
+  max(na.rm = TRUE)
 
+trap_dat <- trap_dat |>
+  filter(CMP_QTY < corral.max) |>
+  dplyr::rename(USET_NAME = USE_TYPE, WTCM_QTY = CMP_QTY)
+
+# trap_dat |>
+# 	filter(CMP_NAME == "TRAPS, LIVE, FERAL HOGS") |>
+# 	pull(CMP_QTY) |>
+# 	hist(
+# 		breaks = 1000,
+# 		main = "CMP_NAME == TRAPS, LIVE, FERAL HOGS",
+# 		xlab = "CMP_QTY"
+# 	)
+# trap_dat |>
+# 	filter(CMP_NAME == "TRAPS, CAGE") |>
+# 	pull(CMP_QTY) |>
+# 	hist(breaks = 1000, main = "CMP_NAME == TRAPS, CAGE", xlab = "CMP_QTY")
+# trap_dat |>
+# 	filter(CMP_NAME == "TRAPS, CORRAL") |>
+# 	pull(CMP_QTY) |>
+# 	hist(breaks = 1000, main = "CMP_NAME == TRAPS, CORRAL", xlab = "CMP_QTY")
 
 #Convert all trap types to the same type
-trap.dat[, "CMP_NAME"] <- "TRAPS, CAGE"
+traps_cage <- trap_dat |>
+  mutate(CMP_NAME = "TRAPS, CAGE")
 
-# trap.dat |>
+# trap_dat |>
 #   filter(CMP_NAME == "TRAPS, CAGE") |>
-#   pull(WTCM_QTY) |>
-#   hist(breaks=1000, main="ALL TRAPS", xlab="WTCM_QTY")
+#   pull(CMP_QTY) |>
+#   hist(breaks=1000, main="ALL TRAPS", xlab="CMP_QTY")
 
 #--Make Chronology using course thershold
-chronology.course <- trap.chronology(
-  trap.dat,
+chronology_course <- trap.chronology(
+  traps_cage,
+  kill_by_prop,
   event.time.threshold = 10,
   use.mlv.thershold = TRUE,
   use.stat.fudge = TRUE,
   fudge.user = 5
 )
-#chronology.course<-merge.trap.events(chronology.course,event.time.threshold=25,max.time=40)
-chronology.course <- assign.orphen.events(chronology.course, max.time = 15)
+#chronology_course<-merge.trap.events(chronology_course,event.time.threshold=25,max.time=40)
+chronology_course <- assign.orphen.events(chronology_course, max.time = 15)
 
-chronology.course$unk.prp.event.id <- paste0(
-  chronology.course$AGRP_PRP_ID,
+chronology_course$unk.prp.event.id <- paste0(
+  chronology_course$AGRP_PRP_ID,
   "-",
-  chronology.course$event.id
+  chronology_course$event.id
 )
-date.lut <- calc.event.length(chronology.course)
+date_lut <- calc.event.length(chronology_course)
 
 #--Make Chronology using fine thershold
-property.vec <- unique(date.lut[date.lut$event.length > 30, "AGRP_PRP_ID"])
+property_vec <- unique(date_lut[date_lut$event.length > 30, "AGRP_PRP_ID"])
 
-new.dat <- trap.dat[trap.dat$AGRP_PRP_ID %in% property.vec, ]
-chronology.fine <- trap.chronology(
-  new.dat,
+new_dat <- trap_dat[trap_dat$AGRP_PRP_ID %in% property_vec, ]
+chronology_fine <- trap.chronology(
+  new_dat,
+  kill_by_prop,
   event.time.threshold = 30,
   use.mlv.thershold = TRUE,
   use.stat.fudge = TRUE,
   fudge.user = 4
 )
-chronology.fine <- assign.orphen.events(chronology.fine, max.time = 15)
+chronology_fine <- assign.orphen.events(chronology_fine, max.time = 15)
 
-chronology.fine$unk.prp.event.id <- paste0(
-  chronology.fine$AGRP_PRP_ID,
+chronology_fine$unk.prp.event.id <- paste0(
+  chronology_fine$AGRP_PRP_ID,
   "-",
-  chronology.fine$event.id
+  chronology_fine$event.id
 )
 
 #--Reconstruct
-chronology.course.adj <- chronology.course[
-  chronology.course$AGRP_PRP_ID %not in% property.vec,
+chronology_course_adj <- chronology_course[
+  chronology_course$AGRP_PRP_ID %not in% property_vec,
 ]
-trap.harvest.chronology <- rbind(chronology.course.adj, chronology.fine)
+trap_harvest_chronology <- rbind(chronology_course_adj, chronology_fine)
 
-trap.harvest.chronology <- assign.orphen.events(
-  trap.harvest.chronology,
+trap_harvest_chronology <- assign.orphen.events(
+  trap_harvest_chronology,
   max.time = 20.5
 )
-trap.harvest.chronology$unk.prp.event.id <- paste0(
-  trap.harvest.chronology$AGRP_PRP_ID,
+trap_harvest_chronology$unk.prp.event.id <- paste0(
+  trap_harvest_chronology$AGRP_PRP_ID,
   "-",
-  trap.harvest.chronology$event.id
+  trap_harvest_chronology$event.id
 )
-nrow(trap.harvest.chronology)
-nrow(chronology.fine) + nrow(chronology.course.adj)
+nrow(trap_harvest_chronology)
+nrow(chronology_fine) + nrow(chronology_course_adj)
 
-date.lut <- calc.event.length(trap.harvest.chronology)
+date_lut <- calc.event.length(trap_harvest_chronology)
 ##----END----
 
 #----Assign Unassigned Orphens events trap nights----
-cnt.1 <- plyr::count(trap.harvest.chronology[, c(
+cnt_1 <- plyr::count(trap_harvest_chronology[, c(
   "AGRP_PRP_ID",
   "unk.prp.event.id",
   "ALWS_AGRPROP_ID"
 )])
-cnt.1[cnt.1$freq == 1, "Orphen.Flag"] <- "Orphen"
-cnt.1 <- cnt.1[, c(
+cnt_1[cnt_1$freq == 1, "Orphen.Flag"] <- "Orphen"
+cnt_1 <- cnt_1[, c(
   "AGRP_PRP_ID",
   "unk.prp.event.id",
   "ALWS_AGRPROP_ID",
   "Orphen.Flag"
 )]
-cnt.1[is.na(cnt.1$Orphen.Flag), "Orphen.Flag"] <- "Not Orphen"
-plyr::count(cnt.1$Orphen.Flag)
-#count(cnt.1[,c("AGRP_PRP_ID","Orphen.Flag")])
+cnt_1[is.na(cnt_1$Orphen.Flag), "Orphen.Flag"] <- "Not Orphen"
+plyr::count(cnt_1$Orphen.Flag)
+#count(cnt_1[,c("AGRP_PRP_ID","Orphen.Flag")])
 
 #INvestigate results
-trap.harvest.chronology <- merge(
-  trap.harvest.chronology,
-  cnt.1,
+trap_harvest_chronology <- merge(
+  trap_harvest_chronology,
+  cnt_1,
   by = c("AGRP_PRP_ID", "unk.prp.event.id", "ALWS_AGRPROP_ID"),
   all.x = TRUE
 )
 mlv(
-  trap.harvest.chronology[
-    trap.harvest.chronology$Orphen.Flag == "Orphen",
+  trap_harvest_chronology[
+    trap_harvest_chronology$Orphen.Flag == "Orphen",
     "day.diff"
   ],
   method = "shorth"
 )
-mean(trap.harvest.chronology[
-  trap.harvest.chronology$Orphen.Flag == "Orphen",
+mean(trap_harvest_chronology[
+  trap_harvest_chronology$Orphen.Flag == "Orphen",
   "day.diff"
 ])
-median(trap.harvest.chronology[
-  trap.harvest.chronology$Orphen.Flag == "Orphen",
+median(trap_harvest_chronology[
+  trap_harvest_chronology$Orphen.Flag == "Orphen",
   "day.diff"
 ])
 
 hist(
-  trap.harvest.chronology[
-    trap.harvest.chronology$Orphen.Flag == "Orphen",
+  trap_harvest_chronology[
+    trap_harvest_chronology$Orphen.Flag == "Orphen",
     "day.diff"
   ],
   breaks = 1500,
   xlim = c(0, 50)
 )
 
-plyr::count(trap.harvest.chronology[
-  trap.harvest.chronology$Orphen.Flag == "Orphen",
+plyr::count(trap_harvest_chronology[
+  trap_harvest_chronology$Orphen.Flag == "Orphen",
   "day.diff"
 ])
 
-sum(trap.harvest.chronology[
-  trap.harvest.chronology$Orphen.Flag == "Orphen",
+sum(trap_harvest_chronology[
+  trap_harvest_chronology$Orphen.Flag == "Orphen",
   "Take"
 ])
 
-#trap.harvest.chronology<-trap.harvest.chronology[trap.harvest.chronology$Orphen.Flag=="Not Orphen",]
-#trap.harvest.chronology <- trap.harvest.chronology[,-ncol(trap.harvest.chronology)]
+#trap_harvest_chronology<-trap_harvest_chronology[trap_harvest_chronology$Orphen.Flag=="Not Orphen",]
+#trap_harvest_chronology <- trap_harvest_chronology[,-ncol(trap_harvest_chronology)]
 #----END----
 
 #----Remove Trapping events that are 1 day in length
-events.1day <- date.lut[
-  date.lut$start.date == date.lut$end.date,
+events_1day <- date_lut[
+  date_lut$start.date == date_lut$end.date,
   c("AGRP_PRP_ID", "unk.prp.event.id", "ALWS_AGRPROP_ID")
 ]
-nrow(trap.harvest.chronology)
+nrow(trap_harvest_chronology)
 
-trap.harvest.chronology <- trap.harvest.chronology[
-  trap.harvest.chronology$unk.prp.event.id %not in% events.1day,
+trap_harvest_chronology <- trap_harvest_chronology[
+  trap_harvest_chronology$unk.prp.event.id %not in% events_1day,
 ]
-nrow(trap.harvest.chronology)
+nrow(trap_harvest_chronology)
 
 
 #----Break up long events----
 
-trap.harvest.chronology <- break.up.long.events(
-  trap.harvest.chronology,
+trap_harvest_chronology <- break.up.long.events(
+  trap_harvest_chronology,
   long.event.thershold = 30
 )
 
@@ -302,111 +296,116 @@ trap.harvest.chronology <- break.up.long.events(
 
 ##----Set Start and End dates----
 
-trap.harvest.chronology <- set.start.and.end.dates(trap.harvest.chronology)
+trap_harvest_chronology <- set.start.and.end.dates(trap_harvest_chronology)
 
 #----END----
 
 #----Recalculate Trap Nights----
 
 #Assume difference in days that are 0 than they are 1 day in length
-#trap.harvest.chronology[trap.harvest.chronology$day.diff==0,"day.diff"] <- 1
+#trap_harvest_chronology[trap_harvest_chronology$day.diff==0,"day.diff"] <- 1
 
-tmp.vec <- rowSums(trap.harvest.chronology[
-  trap.harvest.chronology$trap.count == 0,
+tmp_vec <- rowSums(trap_harvest_chronology[
+  trap_harvest_chronology$trap.count == 0,
   c("SET", "CHECKED", "RESET")
 ])
-trap.harvest.chronology[
-  trap.harvest.chronology$trap.count == 0,
-  "trap.count"
-] <- tmp.vec
-trap.harvest.chronology[trap.harvest.chronology$trap.count == 0, ]
 
-tmp.vec <- rowSums(trap.harvest.chronology[
-  trap.harvest.chronology$trap.count == 0,
+trap_harvest_chronology[
+  trap_harvest_chronology$trap.count == 0,
+  "trap.count"
+] <- tmp_vec
+
+# trap_harvest_chronology[trap_harvest_chronology$trap.count == 0, ]
+
+tmp_vec <- rowSums(trap_harvest_chronology[
+  trap_harvest_chronology$trap.count == 0,
   c("UNSET", "REMOVED")
 ])
-trap.harvest.chronology[
-  trap.harvest.chronology$trap.count == 0,
-  "trap.count"
-] <- tmp.vec
-trap.harvest.chronology[trap.harvest.chronology$trap.count == 0, ]
 
-tmp.vec <- trap.harvest.chronology[
-  trap.harvest.chronology$trap.count == 0,
+trap_harvest_chronology[
+  trap_harvest_chronology$trap.count == 0,
+  "trap.count"
+] <- tmp_vec
+
+# trap_harvest_chronology[trap_harvest_chronology$trap.count == 0, ]
+
+tmp_vec <- trap_harvest_chronology[
+  trap_harvest_chronology$trap.count == 0,
   c("APPLIED.USED")
 ]
-trap.harvest.chronology[
-  trap.harvest.chronology$trap.count == 0,
+trap_harvest_chronology[
+  trap_harvest_chronology$trap.count == 0,
   "trap.count"
-] <- tmp.vec
-trap.harvest.chronology[trap.harvest.chronology$trap.count == 0, ]
+] <- tmp_vec
+
+# trap_harvest_chronology[trap_harvest_chronology$trap.count == 0, ]
 
 #Set first day to 0
-trap.harvest.chronology$days.active <- trap.harvest.chronology$day.diff
-trap.harvest.chronology[
-  trap.harvest.chronology$event.type == "Event Start",
+trap_harvest_chronology$days.active <- trap_harvest_chronology$day.diff
+trap_harvest_chronology[
+  trap_harvest_chronology$event.type == "Event Start",
   "days.active"
 ] <- 0
 
 ##--Deal with Orphens
 
 #Assume Orphens with 0 days are 1 day of effort
-nrow(trap.harvest.chronology[
-  trap.harvest.chronology$Orphen.Flag == "Orphen" &
-    trap.harvest.chronology$day.diff == 0,
+nrow(trap_harvest_chronology[
+  trap_harvest_chronology$Orphen.Flag == "Orphen" &
+    trap_harvest_chronology$day.diff == 0,
 ])
-sum(trap.harvest.chronology[
-  trap.harvest.chronology$Orphen.Flag == "Orphen" &
-    trap.harvest.chronology$day.diff == 0,
+sum(trap_harvest_chronology[
+  trap_harvest_chronology$Orphen.Flag == "Orphen" &
+    trap_harvest_chronology$day.diff == 0,
   "take"
 ])
-#trap.harvest.chronology[trap.harvest.chronology$Orphen.Flag=="Orphen" & trap.harvest.chronology$day.diff==0,"days.active"] <- 0
+#trap_harvest_chronology[trap_harvest_chronology$Orphen.Flag=="Orphen" & trap_harvest_chronology$day.diff==0,"days.active"] <- 0
 
 #Assume Orphens with less than 5 days difference is the trap nights for event
 nrow(
-  day.diff.vec <- trap.harvest.chronology[
-    trap.harvest.chronology$Orphen.Flag == "Orphen" &
-      trap.harvest.chronology$day.diff <= 5 &
-      trap.harvest.chronology$day.diff > 0,
+  day.diff.vec <- trap_harvest_chronology[
+    trap_harvest_chronology$Orphen.Flag == "Orphen" &
+      trap_harvest_chronology$day.diff <= 5 &
+      trap_harvest_chronology$day.diff > 0,
   ]
 )
-day.diff.vec <- trap.harvest.chronology[
-  trap.harvest.chronology$Orphen.Flag == "Orphen" &
-    trap.harvest.chronology$day.diff <= 5 &
-    trap.harvest.chronology$day.diff > 0,
+day.diff.vec <- trap_harvest_chronology[
+  trap_harvest_chronology$Orphen.Flag == "Orphen" &
+    trap_harvest_chronology$day.diff <= 5 &
+    trap_harvest_chronology$day.diff > 0,
   "day.diff"
 ]
-trap.harvest.chronology[
-  trap.harvest.chronology$Orphen.Flag == "Orphen" &
-    trap.harvest.chronology$day.diff <= 5 &
-    trap.harvest.chronology$day.diff > 0,
+trap_harvest_chronology[
+  trap_harvest_chronology$Orphen.Flag == "Orphen" &
+    trap_harvest_chronology$day.diff <= 5 &
+    trap_harvest_chronology$day.diff > 0,
   "days.active"
 ] <- day.diff.vec
 
 #Assume Orphens with >5 days difference are 1 trap night
-trap.harvest.chronology[
-  trap.harvest.chronology$event.type == "Single Day Event",
+trap_harvest_chronology[
+  trap_harvest_chronology$event.type == "Single Day Event",
   "days.active"
 ] <- 1
 
 ##--Calc trap nights
-trap.harvest.chronology$trap.nights <- trap.harvest.chronology$trap.count *
-  trap.harvest.chronology$days.active
+trap_harvest_chronology$trap.nights <- trap_harvest_chronology$trap.count *
+  trap_harvest_chronology$days.active
 #----END----
 
-date.lut <- calc.event.length(trap.harvest.chronology)
+date_lut <- calc.event.length(trap_harvest_chronology)
 
 ##----END Harvest Chronology----
 ##------------------------------
 
 ##----Check Results
-#trap.harvest.chronology[order(-trap.harvest.chronology$trap.nights),]
-#trap.harvest.chronology[order(-trap.harvest.chronology$days.active),]
+#trap_harvest_chronology[order(-trap_harvest_chronology$trap.nights),]
+#trap_harvest_chronology[order(-trap_harvest_chronology$days.active),]
 
 #Determine Appropriate Thershold for long events
-#property.vec <- unique(date.lut[date.lut$event.length>200,"AGRP_PRP_ID"])
+#property_vec <- unique(date_lut[date_lut$event.length>200,"AGRP_PRP_ID"])
 
-#tmp<-trap.harvest.chronology[trap.harvest.chronology$AGRP_PRP_ID %in% property.vec,]
+#tmp<-trap_harvest_chronology[trap_harvest_chronology$AGRP_PRP_ID %in% property_vec,]
 
 #hist(tmp$day.diff,breaks=100000,xlim=c(0,50))
 
@@ -414,17 +413,17 @@ date.lut <- calc.event.length(trap.harvest.chronology)
 #mean(tmp$day.diff)
 #median(tmp$day.diff)
 
-date.lut[order(-date.lut$event.length), ]
-trap.harvest.chronology[order(-trap.harvest.chronology$trap.nights), ]
+date_lut[order(-date_lut$event.length), ]
+trap_harvest_chronology[order(-trap_harvest_chronology$trap.nights), ]
 
-#tmp<-trap.harvest.chronology[trap.harvest.chronology$trap.count==1,]
+#tmp<-trap_harvest_chronology[trap_harvest_chronology$trap.count==1,]
 
 #tmp[order(-tmp$trap.nights),]
 
-#trap.harvest.chronology[order(-trap.harvest.chronology$trap.nights),]
-hist(as.numeric(date.lut$event.length), breaks = 100, xlim = c(0, 90))
-plot(as.numeric(date.lut$event.length), log(date.lut$information.quaility))
-plot(log(as.numeric(date.lut$event.length)), log(date.lut$information.quaility))
+#trap_harvest_chronology[order(-trap_harvest_chronology$trap.nights),]
+hist(as.numeric(date_lut$event.length), breaks = 100, xlim = c(0, 90))
+plot(as.numeric(date_lut$event.length), log(date_lut$information.quaility))
+plot(log(as.numeric(date_lut$event.length)), log(date_lut$information.quaility))
 abline(h = log(.05), col = "red")
 abline(h = log(.1), col = "blue")
 abline(h = log(.2), col = "orange")
@@ -433,28 +432,28 @@ abline(h = log(.2), col = "orange")
 #-------------------------------------------------------------------
 #----Generate summary of trap nights and kill by each trapping event
 
-#trap.harvest.chronology<-read.csv("feral.swine.effort.take.traps.chronology.ALL2018-01-30.csv",stringsAsFactors=FALSE)
-#trap.harvest.chronology <- trap.harvest.chronology[,-1]
-#trap.harvest.chronology$WT_WORK_DATE <- as.Date(as.character(trap.harvest.chronology$WT_WORK_DATE,"%d-%b-%y"))
-date.lut <- calc.event.length(trap.harvest.chronology)
+#trap_harvest_chronology<-read.csv("feral.swine.effort.take.traps.chronology.ALL2018-01-30.csv",stringsAsFactors=FALSE)
+#trap_harvest_chronology <- trap_harvest_chronology[,-1]
+#trap_harvest_chronology$WT_WORK_DATE <- as.Date(as.character(trap_harvest_chronology$WT_WORK_DATE,"%d-%b-%y"))
+date_lut <- calc.event.length(trap_harvest_chronology)
 
-agg.out.dat <- aggregate(
+agg_out_dat <- aggregate(
   cbind(trap.nights, Take) ~
     AGRP_PRP_ID + unk.prp.event.id + ALWS_AGRPROP_ID + CMP_NAME,
-  data = trap.harvest.chronology,
+  data = trap_harvest_chronology,
   FUN = sum
 )
-agg.out.dat <- agg.out.dat[
-  order(agg.out.dat$AGRP_PRP_ID, agg.out.dat$unk.prp.event.id),
+agg_out_dat <- agg_out_dat[
+  order(agg_out_dat$AGRP_PRP_ID, agg_out_dat$unk.prp.event.id),
 ]
-nrow(agg.out.dat)
+nrow(agg_out_dat)
 
 #----Determine uncertainity
 
 #Determine Trap count at end of trapping
-tmp.merge <- merge(
-  date.lut,
-  trap.harvest.chronology,
+tmp_merge <- merge(
+  date_lut,
+  trap_harvest_chronology,
   by = c(
     "AGRP_PRP_ID",
     "unk.prp.event.id",
@@ -464,7 +463,7 @@ tmp.merge <- merge(
   ),
   all.x = TRUE
 )
-tmp.merge <- tmp.merge[, c(
+tmp_merge <- tmp_merge[, c(
   "AGRP_PRP_ID",
   "unk.prp.event.id",
   "ALWS_AGRPROP_ID",
@@ -472,41 +471,41 @@ tmp.merge <- tmp.merge[, c(
   "CMP_NAME",
   "trap.count.event"
 )]
-tmp.merge <- unique(tmp.merge)
+tmp_merge <- unique(tmp_merge)
 
 #If Traps are zeroed out = high; if traps left = moderate; if traps negative = low
-certainty.flag <- tmp.merge[, "trap.count.event"]
-certainty.flag[certainty.flag > 0] <- "Moderate"
-certainty.flag[certainty.flag == 0] <- "High"
-certainty.flag[certainty.flag < 0] <- "low"
+certainty_flag <- tmp_merge[, "trap.count.event"]
+certainty_flag[certainty_flag > 0] <- "Moderate"
+certainty_flag[certainty_flag == 0] <- "High"
+certainty_flag[certainty_flag < 0] <- "low"
 
-tmp.merge$trap.night.certainty <- certainty.flag
+tmp_merge$trap.night.certainty <- certainty_flag
 
-agg.out.dat <- merge(
-  agg.out.dat,
-  tmp.merge,
+agg_out_dat <- merge(
+  agg_out_dat,
+  tmp_merge,
   by = c("AGRP_PRP_ID", "unk.prp.event.id", "ALWS_AGRPROP_ID", "CMP_NAME"),
   all.x = TRUE
 )
 
 
 #Check number of rows
-nrow(agg.out.dat)
-nrow(date.lut)
-length(certainty.flag)
+nrow(agg_out_dat)
+nrow(date_lut)
+length(certainty_flag)
 
 #Merge data
-date.lut <- subset(date.lut, select = -c(WT_WORK_DATE))
+date_lut <- subset(date_lut, select = -c(WT_WORK_DATE))
 
-agg.out.dat <- merge(
-  agg.out.dat,
-  date.lut,
+agg_out_dat <- merge(
+  agg_out_dat,
+  date_lut,
   by = c("AGRP_PRP_ID", "unk.prp.event.id", "ALWS_AGRPROP_ID", "CMP_NAME"),
   all.x = TRUE
 )
 
 #Reorder things
-agg.out.dat <- agg.out.dat[, c(
+agg_out_dat <- agg_out_dat[, c(
   "AGRP_PRP_ID",
   "unk.prp.event.id",
   "ALWS_AGRPROP_ID",
@@ -523,13 +522,13 @@ agg.out.dat <- agg.out.dat[, c(
 #----Merge County location data
 
 #Generate final data
-final.agg.out.dat <- merge(
-  agg.out.dat,
+final_agg_out_dat <- merge(
+  agg_out_dat,
   lut.property.acres,
   by = c("AGRP_PRP_ID", "ALWS_AGRPROP_ID"),
   all.x = TRUE
 )
-final.agg.out.dat <- final.agg.out.dat[, c(
+final_agg_out_dat <- final_agg_out_dat[, c(
   "AGRP_PRP_ID",
   "unk.prp.event.id",
   "ALWS_AGRPROP_ID",
@@ -551,74 +550,74 @@ final.agg.out.dat <- final.agg.out.dat[, c(
   "Take",
   "trap.night.certainty"
 )]
-final.agg.out.dat <- final.agg.out.dat[
-  order(final.agg.out.dat$AGRP_PRP_ID, final.agg.out.dat$unk.prp.event.id),
+final_agg_out_dat <- final_agg_out_dat[
+  order(final_agg_out_dat$AGRP_PRP_ID, final_agg_out_dat$unk.prp.event.id),
 ]
 
-nrow(final.agg.out.dat)
+nrow(final_agg_out_dat)
 
 
 #Remove events with zero trap nights
-non.zero.lut <- rownames(final.agg.out.dat[
-  final.agg.out.dat$trap.nights != 0,
+non_zero_lut <- rownames(final_agg_out_dat[
+  final_agg_out_dat$trap.nights != 0,
 ])
 
 #Limit to those with non-zero trap nights
-final.agg.out.dat <- final.agg.out.dat[
-  rownames(final.agg.out.dat) %in% non.zero.lut,
+final_agg_out_dat <- final_agg_out_dat[
+  rownames(final_agg_out_dat) %in% non_zero_lut,
 ]
-nrow(final.agg.out.dat)
+nrow(final_agg_out_dat)
 
 #Limit to high and moderate certainity
-final.agg.out.dat <- final.agg.out.dat[
-  final.agg.out.dat$trap.night.certainty != "low",
+final_agg_out_dat <- final_agg_out_dat[
+  final_agg_out_dat$trap.night.certainty != "low",
 ]
-nrow(final.agg.out.dat)
+nrow(final_agg_out_dat)
 
 #Limit Event Length
-final.agg.out.dat <- final.agg.out.dat[final.agg.out.dat$event.length < 90, ]
-nrow(final.agg.out.dat)
+final_agg_out_dat <- final_agg_out_dat[final_agg_out_dat$event.length < 90, ]
+nrow(final_agg_out_dat)
 
 #Limit to only those with acreage
-final.agg.out.dat <- final.agg.out.dat[final.agg.out.dat$TOTAL.LAND > 0, ]
-nrow(final.agg.out.dat)
+final_agg_out_dat <- final_agg_out_dat[final_agg_out_dat$TOTAL.LAND > 0, ]
+nrow(final_agg_out_dat)
 
-final.agg.out.dat <- final.agg.out.dat[
-  complete.cases(final.agg.out.dat$AGRP_PRP_ID),
+final_agg_out_dat <- final_agg_out_dat[
+  complete.cases(final_agg_out_dat$AGRP_PRP_ID),
 ]
 
-final.agg.out.dat <- final.agg.out.dat[
-  order(final.agg.out.dat$AGRP_PRP_ID, final.agg.out.dat$start.date),
+final_agg_out_dat <- final_agg_out_dat[
+  order(final_agg_out_dat$AGRP_PRP_ID, final_agg_out_dat$start.date),
 ]
 
 
 #Remove unreliable data from full chronology
-remove.vec <- final.agg.out.dat$unk.prp.event.id
+remove_vec <- final_agg_out_dat$unk.prp.event.id
 
-trap.harvest.chronology.limited <- trap.harvest.chronology[
-  trap.harvest.chronology$unk.prp.event.id %in% remove.vec,
+trap_harvest_chronology_limited <- trap_harvest_chronology[
+  trap_harvest_chronology$unk.prp.event.id %in% remove_vec,
 ]
-nrow(trap.harvest.chronology.limited)
+nrow(trap_harvest_chronology_limited)
 
 #----Write Data
 write.csv(
-  final.agg.out.dat,
+  final_agg_out_dat,
   file.path(
-    write.path,
+    processed_path,
     "feral.swine.effort.take.traps.aggregated.ALL.csv"
   )
 )
 write.csv(
-  trap.harvest.chronology,
+  trap_harvest_chronology,
   file.path(
-    write.path,
+    processed_path,
     "feral.swine.effort.take.traps.chronology.ALL.csv"
   )
 )
 write.csv(
-  trap.harvest.chronology,
+  trap_harvest_chronology,
   file.path(
-    write.path,
+    processed_path,
     "feral.swine.effort.take.traps.chronology.limited.ALL.csv"
   )
 )
