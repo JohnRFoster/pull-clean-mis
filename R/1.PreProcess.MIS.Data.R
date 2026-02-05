@@ -9,30 +9,34 @@ rm(list = ls())
 #.rs.restartR()
 gc()
 
-#----get correct data pull----
-pull.date <- config::get("pull.date")
-
-#---- read path ----
-read.path <- file.path("data/raw", pull.date)
-
-#---- write path ----
-write.path <- file.path("data/processed", pull.date)
-processed <- "processed_"
-
-if (!dir.exists(write.path)) {
-  dir.create(write.path, recursive = TRUE)
-}
-
 #----Load Libraries----
 library(reshape2)
 library(readr)
 library(tidyr)
-library(dplyr)
 library(plyr)
+library(dplyr)
 library(modeest)
 library(operators)
 library(utils)
 library(anytime)
+
+#----get latest data pull----
+raw_dir <- "data/raw"
+
+pull_dates <- list.files(raw_dir)
+pull_dates_num <- as.numeric(gsub("-", "", pull_dates))
+pull_date <- pull_dates[which.max(pull_dates_num)]
+
+#---- read path ----
+read_path <- file.path("data/raw", pull_date)
+
+#---- write path ----
+write_path <- file.path("data/processed", pull_date)
+processed <- "processed_"
+
+if (!dir.exists(write_path)) {
+  dir.create(write_path, recursive = TRUE)
+}
 
 #----Required Functions
 source("R/FNC.MIS.calc.aerial.chronology.R")
@@ -44,7 +48,7 @@ source("R/FNC.MIS.Pre.Process.R")
 
 #--Property Data
 csv.name <- "fs_national_take_by_property.csv"
-file.name <- file.path(read.path, csv.name)
+file.name <- file.path(read_path, csv.name)
 df <- read_csv(file.name)
 dat.Agr.take <- df |>
   distinct() |>
@@ -52,7 +56,7 @@ dat.Agr.take <- df |>
   mutate(AGRPROP_ID = WT_AGRPROP_ID)
 
 csv.name <- "fs_national_property.csv"
-file.name <- file.path(read.path, csv.name)
+file.name <- file.path(read_path, csv.name)
 df <- read_csv(file.name)
 dat.Agr.property <- df |>
   distinct() |>
@@ -118,18 +122,18 @@ colnames(tmp)[ncol(tmp)] <- "DA_NAME_TYPE"
 
 file.name <- paste0("fs_national_property.csv")
 out.name <- paste0(processed, file.name)
-write_csv(tmp, file.path(write.path, out.name))
+write_csv(tmp, file.path(write_path, out.name))
 
 #--Make property lut
 dat.Agr4 <- dat.Agr3[dat.Agr3$DA_NAME == "SWINE, FERAL", ]
 lut.property.acres <- make.property.lut(dat.Agr4)
 lut.property.acres <- lut.property.acres[lut.property.acres$TOTAL.LAND > 0, ]
 out.name <- paste0(processed, "lut_property_acres.csv")
-write_csv(lut.property.acres, file.path(write.path, out.name))
+write_csv(lut.property.acres, file.path(write_path, out.name))
 
 #--Take Data
 csv.name <- paste0("fs_national_take_by_method.csv")
-file.name <- file.path(read.path, csv.name)
+file.name <- file.path(read_path, csv.name)
 dat.Kill <- read_csv(file.name)
 dat.Kill <- distinct(dat.Kill)
 dat.Kill <- dplyr::rename(dat.Kill, ALWS_AGRPROP_ID = WT_AGRPROP_ID)
@@ -137,13 +141,13 @@ dat.Kill <- dplyr::rename(dat.Kill, ALWS_AGRPROP_ID = WT_AGRPROP_ID)
 # Convert Dates to R Dates
 dat.Kill$WT_WORK_DATE <- as.Date(dat.Kill$WT_WORK_DATE, "%d-%b-%y")
 out.name <- paste0(processed, csv.name)
-write_csv(dat.Kill, file.path(write.path, out.name))
+write_csv(dat.Kill, file.path(write_path, out.name))
 
 
 #--Effort
 file.name <- paste0("fs_national_effort.csv")
 
-dat.Eff <- read_csv(file.path(read.path, file.name))
+dat.Eff <- read_csv(file.path(read_path, file.name))
 dat.Eff <- distinct(dat.Eff)
 dat.Eff <- dplyr::rename(dat.Eff, ALWS_AGRPROP_ID = WT_AGRPROP_ID)
 dat.Eff <- alter.column.names(dat.Eff)
@@ -151,17 +155,17 @@ dat.Eff <- alter.column.names(dat.Eff)
 # Convert Dates to R Dates
 dat.Eff$WT_WORK_DATE <- as.Date(dat.Eff$WT_WORK_DATE, "%d-%b-%y")
 out.name <- paste0(processed, file.name)
-write_csv(dat.Eff, file.path(write.path, out.name))
+write_csv(dat.Eff, file.path(write_path, out.name))
 
 
 #--Take by Property
 file.name <- paste0("fs_national_take_by_property.csv")
 
-dat.PropKill <- read_csv(file.path(read.path, file.name))
+dat.PropKill <- read_csv(file.path(read_path, file.name))
 dat.PropKill <- distinct(dat.PropKill)
 dat.PropKill <- dplyr::rename(dat.PropKill, ALWS_AGRPROP_ID = WT_AGRPROP_ID)
 
 out.name <- paste0(processed, file.name)
-write_csv(dat.PropKill, file.path(write.path, out.name))
+write_csv(dat.PropKill, file.path(write_path, out.name))
 
 ##----END DATA PREP----
