@@ -1,29 +1,30 @@
 #----Generate trap chrnology for each trap type
 
-# in.dat=trap.dat;event.time.threshold=15;use.mlv.thershold=TRUE;use.stat.fudge=TRUE; fudge.user=5
+# in_dat=trap.dat;event.time.threshold=15;use.mlv.thershold=TRUE;use.stat.fudge=TRUE; fudge.user=5
 
 trap.chronology <- function(
-  in.dat,
+  in_dat,
+  kill_dat,
   event.time.threshold = 15,
   use.mlv.thershold = TRUE,
   use.stat.fudge = TRUE,
   fudge.user = 5
 ) {
-  threshold.mat <- matrix(ncol = 5, nrow = nrow(in.dat))
+  threshold.mat <- matrix(ncol = 5, nrow = nrow(in_dat))
 
-  if (nrow(in.dat) != 0) {
-    in.dat <- pre.process.data(in.dat)
+  if (nrow(in_dat) != 0) {
+    in_dat <- pre.process.data(in_dat)
 
-    freq.prop <- plyr::count(in.dat$AGRP_PRP_ID)
+    freq.prop <- plyr::count(in_dat$AGRP_PRP_ID)
     freq.prop.gt1 <- freq.prop[freq.prop$freq > 1, ]
 
     #limit to those with more then 1 record
-    in.dat <- in.dat[in.dat$AGRP_PRP_ID %in% freq.prop.gt1[, 1], ]
+    in_dat <- in_dat[in_dat$AGRP_PRP_ID %in% freq.prop.gt1[, 1], ]
 
     #Logical to catch rows that =0
-    if (nrow(in.dat) != 0) {
+    if (nrow(in_dat) != 0) {
       #Generate Agreement List
-      agrp_prp.list <- plyr::count(in.dat$AGRP_PRP_ID)
+      agrp_prp.list <- plyr::count(in_dat$AGRP_PRP_ID)
       prop.list <- agrp_prp.list[, 1]
 
       pb <- txtProgressBar(min = 0, max = length(prop.list), style = 3)
@@ -31,7 +32,7 @@ trap.chronology <- function(
       #--Run For Each Agreement
       for (i in 1:length(prop.list)) {
         #Subset Property
-        tmp.dat <- in.dat[in.dat$AGRP_PRP_ID == prop.list[i], ]
+        tmp.dat <- in_dat[in_dat$AGRP_PRP_ID == prop.list[i], ]
         tmp.dat <- tmp.dat[order(tmp.dat$WT_WORK_DATE), , drop = FALSE]
 
         if (sum(tmp.dat[, c("SET", "CHECKED", "REMOVED")]) != 0) {
@@ -118,29 +119,10 @@ trap.chronology <- function(
       #Generate Take by property
       #kill.by.prop<-dat.PropKill[dat.PropKill$CMP_NAME %in% trap.vec,]
 
-      kill.by.prop <- dat.PropKill
-      kill.by.prop <- unique(kill.by.prop[, c(
-        "ALWS_AGRPROP_ID",
-        "AGRP_PRP_ID",
-        "ST_NAME",
-        "ST_GSA_STATE_CD",
-        "CNTY_GSA_CNTY_CD",
-        "WTCM_QTY",
-        "CMP_NAME",
-        "WKR_QTY",
-        "WT_WORK_DATE"
-      )])
-      kill.by.prop <- kill.by.prop[, c(
-        "AGRP_PRP_ID",
-        "WT_WORK_DATE",
-        "CMP_NAME",
-        "WKR_QTY"
-      )]
-
       #Merge trap chronology and take data
       trap.harvest.chronology <- merge(
         out.dat,
-        kill.by.prop,
+        kill_dat,
         by = c("AGRP_PRP_ID", "WT_WORK_DATE", "CMP_NAME"),
         all.x = TRUE
       )
