@@ -30,7 +30,7 @@ raw_dir <- "data/raw"
 pull_date <- get_latest_pull_date(raw_dir)
 
 #---- read path ----
-read_path <- file.path("data/raw", pull_date)
+read_path <- file.path(raw_dir, pull_date)
 
 #---- write path ----
 write_path <- file.path("data/processed", pull_date)

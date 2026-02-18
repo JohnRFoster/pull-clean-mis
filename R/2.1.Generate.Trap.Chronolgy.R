@@ -19,22 +19,6 @@ library(plyr)
 library(dplyr)
 library(operators)
 
-#----get correct data pull----
-raw_dir <- "data/raw"
-
-pull_dates <- list.files(raw_dir)
-pull_dates_num <- as.numeric(gsub("-", "", pull_dates))
-pull_date <- pull_dates[which.max(pull_dates_num)]
-
-raw_data_dir <- "data/raw"
-raw_data_file <- "fs_national_all.csv"
-raw_data <- file.path(raw_data_dir, pull_date, raw_data_file)
-
-
-#---- processed path ----
-processed_path <- file.path("data/processed", pull_date)
-processed <- "processed_"
-
 #----Required Functions
 source("R/FNC.MIS.Pre.Process.R")
 source("R/FNC.MIS.calc.trap.effort.R")
@@ -43,13 +27,27 @@ source("R/FNC.MIS.calc.trap.chronology.R")
 source("R/FNC.Misc.Utilities.R")
 source("R/FNC.MIS.assign.orphen.events.R")
 
+#----get correct data pull----
+raw_dir <- "data/raw"
+pull_date <- get_latest_pull_date(raw_dir)
+
+#---- read path ----
+read_path <- file.path(raw_dir, pull_date)
+
+#---- write path ----
+processed_dir <- "data/processed"
+processed_path <- file.path(processed_dir, pull_date)
+processed <- "processed_"
+
 # look up table property acres
-lut.property.acres <- read_csv(file.path(
+lut_property_acres <- read_csv(file.path(
   processed_path,
   "processed_lut_property_acres.csv"
 ))
 
 # Read data
+raw_data_file <- "fs_national_all.csv"
+raw_data <- file.path(read_path, raw_data_file)
 dat_agr_csv <- read_csv(raw_data)
 dat_agr_csv2 <- alter.column.names(dat_agr_csv)
 
@@ -525,7 +523,7 @@ agg_out_dat <- agg_out_dat[, c(
 #Generate final data
 final_agg_out_dat <- merge(
   agg_out_dat,
-  lut.property.acres,
+  lut_property_acres,
   by = c("AGRP_PRP_ID", "ALWS_AGRPROP_ID"),
   all.x = TRUE
 )
