@@ -20,19 +20,19 @@ pre.process.data <- function(in.dat) {
   in.dat$USET_NAME <- tmp
 
   #Convert Work Time to Hours
-  in.dat[in.dat$UOM_NAME == "MINUTES", "WTM_QTY"] <- in.dat[
-    in.dat$UOM_NAME == "MINUTES",
+  in.dat[in.dat$WORK_TASK_UOM == "MINUTES", "WTM_QTY"] <- in.dat[
+    in.dat$WORK_TASK_UOM == "MINUTES",
     "WTM_QTY"
   ] /
     60
-  in.dat$UOM_NAME <- "HOURS"
+  in.dat$WORK_TASK_UOM <- "HOURS"
 
-  #count(in.dat[,c("ID","AGRP_PRP_ID","UOM_NAME","WTCM_QTY","CMP_NAME","CMP_TYPE","DA_NAME","WT_WORK_DATE","USET_NAME")])
+  #count(in.dat[,c("ID","AGRP_PRP_ID","WORK_TASK_UOM","WTCM_QTY","CMP_NAME","CMP_TYPE","DA_NAME","WT_WORK_DATE","USET_NAME")])
 
   in.dat <- aggregate(
     WTM_QTY ~ AGRP_PRP_ID +
       ALWS_AGRPROP_ID +
-      UOM_NAME +
+      WORK_TASK_UOM +
       WTCM_QTY +
       CMP_NAME +
       # CMP_TYPE +

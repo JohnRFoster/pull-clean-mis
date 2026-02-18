@@ -83,7 +83,7 @@ kill_by_prop <- dat_agr_csv2 |>
     WT_WORK_DATE
   ) |>
   distinct() |>
-  select(AGRP_PRP_ID, WT_WORK_DATE, WKR_QTY, WTCM_QTY)
+  select(AGRP_PRP_ID, WT_WORK_DATE, WKR_QTY, WTCM_QTY, CMP_NAME)
 
 ##----END DATA PREP----
 
@@ -109,18 +109,17 @@ prp_vec <- dat_agr_csv2 |>
 #          "TRAPS, OTHER", "TRAPS, FOOTHOLD (PADDED)", "TRAPS, CULVERT"
 trap_vec <- c("TRAPS, LIVE, FERAL HOGS", "TRAPS, CAGE", "TRAPS, CORRAL")
 
-trap_dat <- dat_agr_csv2 |>
+trap_dat_tmp <- dat_agr_csv2 |>
   filter(CMP_NAME %in% trap_vec, !AGRP_PRP_ID %in% prp_vec)
 
 #Remove those with CMP_QTY > max CMP_QTY for Corral Traps
-corral_max <- trap_dat |>
+corral_max <- trap_dat_tmp |>
   filter(CMP_NAME == "TRAPS, CORRAL") |>
-  pull(CMP_QTY) |>
+  pull(WTCM_QTY) |>
   max(na.rm = TRUE)
 
-trap_dat <- trap_dat |>
-  filter(CMP_QTY < corral_max) |>
-  dplyr::rename(USET_NAME = USE_TYPE, WTCM_QTY = CMP_QTY)
+trap_dat <- trap_dat_tmp |>
+  filter(WTCM_QTY < corral_max)
 
 # trap_dat |>
 # 	filter(CMP_NAME == "TRAPS, LIVE, FERAL HOGS") |>
