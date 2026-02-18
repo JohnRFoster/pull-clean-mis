@@ -114,13 +114,13 @@ trap_dat <- dat_agr_csv2 |>
   filter(CMP_NAME %in% trap_vec, !AGRP_PRP_ID %in% prp_vec)
 
 #Remove those with CMP_QTY > max CMP_QTY for Corral Traps
-corral.max <- trap_dat |>
+corral_max <- trap_dat |>
   filter(CMP_NAME == "TRAPS, CORRAL") |>
   pull(CMP_QTY) |>
   max(na.rm = TRUE)
 
 trap_dat <- trap_dat |>
-  filter(CMP_QTY < corral.max) |>
+  filter(CMP_QTY < corral_max) |>
   dplyr::rename(USET_NAME = USE_TYPE, WTCM_QTY = CMP_QTY)
 
 # trap_dat |>
@@ -198,6 +198,7 @@ trap_harvest_chronology <- assign.orphen.events(
   trap_harvest_chronology,
   max.time = 20.5
 )
+
 trap_harvest_chronology$unk.prp.event.id <- paste0(
   trap_harvest_chronology$AGRP_PRP_ID,
   "-",
@@ -604,21 +605,21 @@ write.csv(
   final_agg_out_dat,
   file.path(
     processed_path,
-    "feral.swine.effort.take.traps.aggregated.ALL.csv"
+    "dev_feral.swine.effort.take.traps.aggregated.ALL.csv"
   )
 )
 write.csv(
   trap_harvest_chronology,
   file.path(
     processed_path,
-    "feral.swine.effort.take.traps.chronology.ALL.csv"
+    "dev_feral.swine.effort.take.traps.chronology.ALL.csv"
   )
 )
 write.csv(
   trap_harvest_chronology,
   file.path(
     processed_path,
-    "feral.swine.effort.take.traps.chronology.limited.ALL.csv"
+    "dev_feral.swine.effort.take.traps.chronology.limited.ALL.csv"
   )
 )
 
