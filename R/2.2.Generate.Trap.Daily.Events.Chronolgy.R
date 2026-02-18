@@ -38,7 +38,8 @@ lut.property.acres <- read_csv(file.path(
 ))
 
 # Read data
-dat_agr_csv <- read_csv(raw_data)
+df <- read_csv(raw_data)
+dat_agr_csv <- df |> raw_filter()
 dat_agr_csv2 <- alter.column.names(dat_agr_csv)
 
 # might not need dat_Agr??
@@ -77,9 +78,6 @@ prp_vec <- dat_agr_csv2 |>
   pull(AGRP_PRP_ID) |>
   unique()
 
-trap.dat <- dat.Eff[dat.Eff$AGRP_PRP_ID %!in% prp_vec, ]
-
-
 #--Restrict to those with trapping
 
 # Restrict to those with trapping
@@ -91,15 +89,14 @@ trap_vec <- c("TRAPS, LIVE, FERAL HOGS", "TRAPS, CAGE", "TRAPS, CORRAL")
 trap_dat <- dat_agr_csv2 |>
   filter(CMP_NAME %in% trap_vec, !AGRP_PRP_ID %in% prp_vec)
 
-#Remove those with CMP_QTY > max CMP_QTY for Corral Traps
+#Remove those with WTCM_QTY > max WTCM_QTY for Corral Traps
 corral_max <- trap_dat |>
   filter(CMP_NAME == "TRAPS, CORRAL") |>
-  pull(CMP_QTY) |>
+  pull(WTCM_QTY) |>
   max(na.rm = TRUE)
 
 trap_dat <- trap_dat |>
-  filter(CMP_QTY < corral_max) |>
-  dplyr::rename(USET_NAME = USE_TYPE, WTCM_QTY = CMP_QTY)
+  filter(WTCM_QTY < corral_max)
 
 
 #-------------------------------------------------------------------
@@ -191,7 +188,7 @@ agg_out_dat <- trap_harvest_chronology[, c(
 )]
 
 agg_out_dat <- agg_out_dat |>
-  rename(
+  dplyr::rename(
     start.date = within.event.str.date,
     end.date = within.event.end.date,
     event.length = days.active

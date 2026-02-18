@@ -675,10 +675,21 @@ get_latest_pull_date <- function(raw_dir) {
 
 # raw data filter
 raw_filter <- function(dat) {
-  dat |>
+  tmp <- dat |>
     filter(
       DA_NAME == "SWINE, FERAL",
       WT_WORK_DATE >= "2001-01-01",
       FATE_FATE == "KILLED"
     )
+  cols <- colnames(tmp)
+  if ("CMP_QTY" %in% cols) {
+    tmp <- dplyr::rename(tmp, WTCM_QTY = CMP_QTY)
+  }
+  if ("USE_TYPE" %in% cols) {
+    tmp <- dplyr::rename(tmp, USET_NAME = USE_TYPE)
+  }
+  if ("TAKE" %in% cols) {
+    tmp <- dplyr::rename(tmp, WKR_QTY = TAKE)
+  }
+  tmp
 }
