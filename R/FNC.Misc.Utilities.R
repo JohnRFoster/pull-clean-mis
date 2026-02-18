@@ -664,3 +664,11 @@ check.all.properties <- function(tmp) {
   tmp <- dplyr::bind_rows(tmp, recovered_areas)
   return(tmp)
 }
+
+# get the latest pull date from the raw data directory
+get_latest_pull_date <- function(raw_dir) {
+  pull_dates <- list.files(raw_dir)
+  pull_dates_num <- as.numeric(gsub("-", "", pull_dates))
+  pull_date <- pull_dates[which.max(pull_dates_num)]
+  pull_date
+}
