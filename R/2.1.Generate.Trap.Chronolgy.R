@@ -48,7 +48,8 @@ lut_property_acres <- read_csv(file.path(
 # Read data
 raw_data_file <- "fs_national_all.csv"
 raw_data <- file.path(read_path, raw_data_file)
-dat_agr_csv <- read_csv(raw_data)
+df <- read_csv(raw_data)
+dat_agr_csv <- df |> raw_filter()
 dat_agr_csv2 <- alter.column.names(dat_agr_csv)
 
 # might not need dat_Agr??
@@ -76,13 +77,13 @@ kill_by_prop <- dat_agr_csv2 |>
     ST_NAME,
     ST_GSA_STATE_CD,
     CNTY_GSA_CNTY_CD,
-    CMP_QTY,
+    WTCM_QTY, # CMP_QTY
     CMP_NAME,
-    TAKE,
+    WKR_QTY, # TAKE
     WT_WORK_DATE
   ) |>
   distinct() |>
-  select(AGRP_PRP_ID, WT_WORK_DATE, CMP_NAME, TAKE)
+  select(AGRP_PRP_ID, WT_WORK_DATE, WKR_QTY, WTCM_QTY)
 
 ##----END DATA PREP----
 

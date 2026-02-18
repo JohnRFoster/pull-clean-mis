@@ -672,3 +672,13 @@ get_latest_pull_date <- function(raw_dir) {
   pull_date <- pull_dates[which.max(pull_dates_num)]
   pull_date
 }
+
+# raw data filter
+raw_filter <- function(dat) {
+  dat |>
+    filter(
+      DA_NAME == "SWINE, FERAL",
+      WT_WORK_DATE >= "2001-01-01",
+      FATE_FATE == "KILLED"
+    )
+}

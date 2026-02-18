@@ -46,13 +46,7 @@ if (!dir.exists(write_path)) {
 csv_name <- "fs_national_all.csv"
 file_name <- file.path(read_path, csv_name)
 df <- read_csv(file_name)
-dat <- df |>
-  filter(
-    DA_NAME == "SWINE, FERAL",
-    WT_WORK_DATE >= "2001-01-01",
-    FATE_FATE == "KILLED"
-  )
-
+dat <- df |> raw_filter()
 
 #--Make property lut
 lut <- make.property.lut(dat)
