@@ -1,12 +1,6 @@
 rm(list = ls())
 gc()
 
-#----get correct data pull----
-pull.date <- config::get("pull.date")
-
-#---- write path ----
-write.path <- file.path("data/processed", pull.date)
-
 #----Load Libraries----
 library(reshape2)
 library(tidyr)
@@ -23,53 +17,59 @@ source("R/FNC.Misc.Utilities.R")
 
 
 #----Prep Data ----
+raw_dir <- "data/raw"
 
-# Read data
-dat.Agr <- read_csv(file.path(
-  write.path,
-  "processed_fs_national_property.csv"
-))
-dat.Kill <- read_csv(file.path(
-  write.path,
-  "processed_fs_national_take_by_method.csv"
-))
-dat.Eff <- read_csv(file.path(
-  write.path,
-  "processed_fs_national_effort.csv"
-))
-dat.PropKill <- read_csv(file.path(
-  write.path,
-  "processed_fs_national_take_by_property.csv"
-))
-lut.property.acres <- read_csv(file.path(
-  write.path,
+pull_dates <- list.files(raw_dir)
+pull_dates_num <- as.numeric(gsub("-", "", pull_dates))
+pull_date <- pull_dates[which.max(pull_dates_num)]
+
+raw_data_dir <- "data/raw"
+raw_data_file <- "fs_national_all.csv"
+raw_data <- file.path(raw_data_dir, pull_date, raw_data_file)
+
+
+#---- processed path ----
+processed_path <- file.path("data/processed", pull_date)
+processed <- "processed_"
+
+# look up table property acres
+lut_property_acres <- read_csv(file.path(
+  processed_path,
   "processed_lut_property_acres.csv"
 ))
+
+# Read data
+df <- read_csv(raw_data)
+dat_agr_csv <- df |> raw_filter()
+dat_agr_csv2 <- alter.column.names(dat_agr_csv)
 
 ##----END DATA PREP----
 
 #--Subset Data
-aerial.vec <- c("HELICOPTER", "FIXED WING")
+aerial_vec <- c("HELICOPTER", "FIXED WING")
 
-tmp <- dat.Eff[dat.Eff$CMP_NAME %in% aerial.vec, ]
-tmp <- tmp[tmp$UOM_NAME == "HOBBS METER", ]
+tmp <- dat_agr_csv2 |>
+  filter(
+    CMP_NAME %in% aerial_vec,
+    WORK_TASK_UOM == "HOBBS METER",
+    USET_NAME != "DISCHARGED"
+  )
 
 unique(tmp$CMP_NAME)
 unique(tmp$CMP_TYPE)
-count(tmp$USET_NAME)
-
-tmp <- tmp[tmp$USET_NAME %not in% c("DISCHARGED"), ]
+table(tmp$USET_NAME)
 
 #--Remove implosable values
 summary(tmp$WTM_QTY)
 summary(tmp$WTCM_QTY)
-tmp <- tmp[tmp$WTCM_QTY != 27, ]
 
-tmp$Flight.Hours <- tmp$WTCM_QTY * tmp$WTM_QTY
-tmp$Flight.Days <- (tmp$WTCM_QTY / 24) * tmp$WTM_QTY
+tmp <- tmp |>
+  mutate(
+    Flight.Hours = WTCM_QTY * WTM_QTY,
+    Flight.Days = (WTCM_QTY / 24) * WTM_QTY
+  )
 
-
-wide.data <- aggregate(
+wide_data <- aggregate(
   cbind(WTM_QTY, WTCM_QTY, Flight.Hours, Flight.Days) ~
     ALWS_AGRPROP_ID + AGRP_PRP_ID + CMP_NAME + WT_WORK_DATE,
   data = tmp,
@@ -77,22 +77,25 @@ wide.data <- aggregate(
 )
 
 #Ensure data is ordered
-wide.data <- wide.data[
+wide_data <- wide_data[
   order(
-    wide.data$AGRP_PRP_ID,
-    wide.data$ALWS_AGRPROP_ID,
-    wide.data$WT_WORK_DATE
+    wide_data$AGRP_PRP_ID,
+    wide_data$ALWS_AGRPROP_ID,
+    wide_data$WT_WORK_DATE
   ),
   ,
   drop = FALSE
 ]
 
-colnames(wide.data)[which(colnames(wide.data) == "WTM_QTY")] <- "HOURS"
-colnames(wide.data)[which(colnames(wide.data) == "WTCM_QTY")] <- "VEHICLES"
+wide_data <- wide_data |>
+  dplyr::rename(
+    HOURS = WTM_QTY,
+    VEHICLES = WTCM_QTY
+  )
 
-in.dat <- wide.data
+in_dat <- wide_data
 
-head(wide.data[order(-wide.data$VEHICLES), ])
+head(wide_data[order(-wide_data$VEHICLES), ])
 
 ##END
 
@@ -105,101 +108,106 @@ head(wide.data[order(-wide.data$VEHICLES), ])
 #----Generate trap effort ----
 
 #Subset to area of interest
-#trap.dat<-in.dat[in.dat$AGRP_PRP_ID %in% unique.properties,]
+#trap_dat<-in_dat[in_dat$AGRP_PRP_ID %in% unique.properties,]
 
-trap.dat <- in.dat
+trap_dat <- in_dat
 
 #Generate trap type list to process
-trap.vec <- unique(in.dat$CMP_NAME)
+trap_vec <- unique(in_dat$CMP_NAME)
 
 #--Remove implosable values
-summary(trap.dat$HOURS)
-summary(trap.dat$VEHICLES)
-summary(trap.dat$Flight.Hours)
+summary(trap_dat$HOURS)
+summary(trap_dat$VEHICLES)
+summary(trap_dat$Flight.Hours)
 
-par(mfrow = c(3, 1))
-hist(trap.dat$HOURS, breaks = 100, xlab = "Hours", main = "Hours")
-hist(trap.dat$VEHICLES, breaks = 100, xlab = "Vehicles", main = "Vehicles")
+hist(trap_dat$HOURS, breaks = 100, xlab = "Hours", main = "Hours")
+hist(trap_dat$VEHICLES, breaks = 100, xlab = "Vehicles", main = "Vehicles")
 plot(
-  trap.dat$HOURS,
-  trap.dat$VEHICLES,
+  trap_dat$HOURS,
+  trap_dat$VEHICLES,
   xlab = "Hours",
   ylab = "Vehicles",
   main = "Vehicles vrs Hours"
 )
 
 #Restrict number of vehicles
-#nrow(trap.dat[trap.dat$VEHICLES>3,])
-#trap.dat <- trap.dat[trap.dat$VEHICLES<=3,]
-#nrow(trap.dat)
+#nrow(trap_dat[trap_dat$VEHICLES>3,])
+#trap_dat <- trap_dat[trap_dat$VEHICLES<=3,]
+#nrow(trap_dat)
 
 #Restrict hours
-#nrow(trap.dat[trap.dat$HOURS>10,])
-#trap.dat <- trap.dat[trap.dat$HOURS<=10,]
-#nrow(trap.dat)
+#nrow(trap_dat[trap_dat$HOURS>10,])
+#trap_dat <- trap_dat[trap_dat$HOURS<=10,]
+#nrow(trap_dat)
 
-#trap.dat[trap.dat$ALWS_AGRPROP_ID=="366874" & trap.dat$AGRP_PRP_ID=="370276",]
+#trap_dat[trap_dat$ALWS_AGRPROP_ID=="366874" & trap_dat$AGRP_PRP_ID=="370276",]
 
 #----Generate trap chronology for each trap type
 
-harvest.chronology <- generate.trap.chronology(
-  trap.dat,
-  dat.PropKill,
-  trap.vec,
+kill_by_prop <- read_csv(file.path(
+  processed_path,
+  "processed_kill_by_prop.csv"
+))
+
+harvest_chronology <- generate.trap.chronology(
+  trap_dat,
+  kill_by_prop,
+  trap_vec,
   time.thershold = 25
 )
-nrow(harvest.chronology)
+nrow(harvest_chronology)
 
 #----Generate summary of trap nights and kill by each trapping event
-agg.out.dat <- aggregate(
+agg_out_dat <- aggregate(
   cbind(HOURS, VEHICLES, Flight.Hours, Flight.Days, Take) ~
     AGRP_PRP_ID + ALWS_AGRPROP_ID + event.id + CMP_NAME,
-  data = harvest.chronology,
+  data = harvest_chronology,
   FUN = sum
 )
-agg.out.dat <- agg.out.dat[
-  order(agg.out.dat$AGRP_PRP_ID, agg.out.dat$event.id),
+
+agg_out_dat <- agg_out_dat[
+  order(agg_out_dat$AGRP_PRP_ID, agg_out_dat$event.id),
 ]
-nrow(agg.out.dat)
-#agg.out.dat[agg.out.dat$AGRP_PRP_ID==224386,]
+
+nrow(agg_out_dat)
+#agg_out_dat[agg_out_dat$AGRP_PRP_ID==224386,]
 
 #----Make start and end dates for aggregated data
-str.date <- aggregate(
+str_date <- aggregate(
   WT_WORK_DATE ~ event.id + AGRP_PRP_ID + ALWS_AGRPROP_ID + CMP_NAME,
-  data = harvest.chronology,
+  data = harvest_chronology,
   FUN = min
 )
-end.date <- aggregate(
+
+end_date <- aggregate(
   WT_WORK_DATE ~ event.id + AGRP_PRP_ID + ALWS_AGRPROP_ID + CMP_NAME,
-  data = harvest.chronology,
+  data = harvest_chronology,
   FUN = max
 )
 
-dates.event <- merge(
-  str.date,
-  end.date,
-  by = c("event.id", "AGRP_PRP_ID", "ALWS_AGRPROP_ID", "CMP_NAME")
-)
-colnames(dates.event) <- c(
-  "event.id",
-  "AGRP_PRP_ID",
-  "ALWS_AGRPROP_ID",
-  "CMP_NAME",
-  "Start.Date",
-  "End.Date"
-)
-
-dates.event$event.length <- dates.event[, "End.Date"] -
-  dates.event[, "Start.Date"]
-dates.event[dates.event$event.length == 0, "event.length"] <- 1
-
-agg.out.dat <- merge(
-  agg.out.dat,
-  dates.event,
+dates_event <- merge(
+  str_date,
+  end_date,
   by = c("event.id", "AGRP_PRP_ID", "ALWS_AGRPROP_ID", "CMP_NAME")
 )
 
-agg.out.dat <- agg.out.dat[, c(
+dates_event <- dates_event |>
+  dplyr::rename(
+    Start.Date = WT_WORK_DATE.x,
+    End.Date = WT_WORK_DATE.y
+  ) |>
+  mutate(
+    event.length = End.Date - Start.Date,
+    event.length = ifelse(event.length == 0, 1, event.length)
+  )
+
+agg_out_dat <- merge(
+  agg_out_dat,
+  dates_event,
+  by = c("event.id", "AGRP_PRP_ID", "ALWS_AGRPROP_ID", "CMP_NAME")
+)
+
+agg_out_dat <- agg_out_dat[, c(
   "AGRP_PRP_ID",
   "ALWS_AGRPROP_ID",
   "event.id",
@@ -214,8 +222,8 @@ agg.out.dat <- agg.out.dat[, c(
   "Take"
 )]
 
-agg.out.dat <- agg.out.dat[
-  order(agg.out.dat$AGRP_PRP_ID, agg.out.dat$event.id),
+agg_out_dat <- agg_out_dat[
+  order(agg_out_dat$AGRP_PRP_ID, agg_out_dat$event.id),
   ,
   drop = FALSE
 ]
@@ -224,13 +232,14 @@ agg.out.dat <- agg.out.dat[
 #----Merge County location data
 
 #Generate final data
-final.agg.out.dat <- merge(
-  agg.out.dat,
-  lut.property.acres,
+final_agg_out_dat <- merge(
+  agg_out_dat,
+  lut_property_acres,
   by = c("AGRP_PRP_ID", "ALWS_AGRPROP_ID"),
   all.x = TRUE
 )
-final.agg.out.dat <- final.agg.out.dat[, c(
+
+final_agg_out_dat <- final_agg_out_dat[, c(
   "AGRP_PRP_ID",
   "ALWS_AGRPROP_ID",
   "event.id",
@@ -255,72 +264,74 @@ final.agg.out.dat <- final.agg.out.dat[, c(
   "Flight.Days",
   "Take"
 )]
-final.agg.out.dat <- final.agg.out.dat[
-  order(final.agg.out.dat$AGRP_PRP_ID, final.agg.out.dat$event.id),
-]
-nrow(final.agg.out.dat)
 
-final.agg.out.dat <- final.agg.out.dat[
-  is.na(final.agg.out.dat$AGRP_PRP_ID) == FALSE,
+final_agg_out_dat <- final_agg_out_dat[
+  order(final_agg_out_dat$AGRP_PRP_ID, final_agg_out_dat$event.id),
 ]
-nrow(final.agg.out.dat)
+nrow(final_agg_out_dat)
+
+final_agg_out_dat <- final_agg_out_dat[
+  is.na(final_agg_out_dat$AGRP_PRP_ID) == FALSE,
+]
+nrow(final_agg_out_dat)
 
 #Remove those with no FIPS Code thus no area values
-final.agg.out.dat <- check.all.properties(final.agg.out.dat)
-nrow(final.agg.out.dat)
+final_agg_out_dat <- check.all.properties(final_agg_out_dat)
+nrow(final_agg_out_dat)
 
-final.agg.out.dat <- final.agg.out.dat[is.na(final.agg.out.dat$FIPS) == FALSE, ]
-nrow(final.agg.out.dat)
+final_agg_out_dat <- final_agg_out_dat[is.na(final_agg_out_dat$FIPS) == FALSE, ]
+nrow(final_agg_out_dat)
 
 #----END fill in missing values
 
 #----Write Data
 write.csv(
-  final.agg.out.dat,
+  final_agg_out_dat,
   file.path(
-    write.path,
-    "feral.swine.effort.take.aerial.ALL.csv"
+    processed_path,
+    "dev_feral.swine.effort.take.aerial.ALL.csv"
   )
 )
+
 write.csv(
-  harvest.chronology,
+  harvest_chronology,
   file.path(
-    write.path,
-    "feral.swine.effort.take.aerial.chronology.ALL.csv"
+    processed_path,
+    "dev_feral.swine.effort.take.aerial.chronology.ALL.csv"
   )
 )
 
 ##----END----##
 
-count(final.agg.out.dat$ST_NAME)
-length(unique(final.agg.out.dat$AGRP_PRP_ID))
-nrow(final.agg.out.dat)
+plyr::count(final_agg_out_dat$ST_NAME)
+length(unique(final_agg_out_dat$AGRP_PRP_ID))
+nrow(final_agg_out_dat)
 
-summary(final.agg.out.dat$Take)
+summary(final_agg_out_dat$Take)
 
 
 ##---- MAKE PLOTS ----
 par(mfrow = c(2, 2))
 
-hist(final.agg.out.dat$Take, xlab = "Take", breaks = 30, main = NULL)
+hist(final_agg_out_dat$Take, xlab = "Take", breaks = 30, main = NULL)
 
-summary(final.agg.out.dat$Take)
+summary(final_agg_out_dat$Take)
 
 plot(
-  log(final.agg.out.dat$TOTAL.LAND),
-  final.agg.out.dat$Take,
+  log(final_agg_out_dat$TOTAL.LAND),
+  final_agg_out_dat$Take,
   xlab = "log Property Size",
   ylab = "Take"
 )
 plot(
-  log(final.agg.out.dat$TOTAL.LAND),
-  final.agg.out.dat$Flight.Days,
+  log(final_agg_out_dat$TOTAL.LAND),
+  final_agg_out_dat$Flight.Days,
   xlab = "log Property Size",
   ylab = "Flight Days"
 )
 plot(
-  log(final.agg.out.dat$Flight.Days),
-  log(final.agg.out.dat$Take),
+  log(final_agg_out_dat$Flight.Days),
+  log(final_agg_out_dat$Take),
   xlab = "log Flight Days",
   ylab = "log Take"
 )

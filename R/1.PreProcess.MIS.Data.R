@@ -42,7 +42,6 @@ if (!dir.exists(write_path)) {
 
 #----Prep Data ----
 
-#--Property Data
 csv_name <- "fs_national_all.csv"
 file_name <- file.path(read_path, csv_name)
 df <- read_csv(file_name)
@@ -55,5 +54,23 @@ lut_property_acres <- lut |>
 
 out_name <- paste0(processed, "lut_property_acres.csv")
 write_csv(lut_property_acres, file.path(write_path, out_name))
+
+#--Property Data
+kill_by_prop <- dat |>
+  select(
+    ALWS_AGRPROP_ID,
+    AGRP_PRP_ID,
+    ST_NAME,
+    ST_GSA_STATE_CD,
+    CNTY_GSA_CNTY_CD,
+    WTCM_QTY, # CMP_QTY
+    CMP_NAME,
+    WKR_QTY, # TAKE
+    WT_WORK_DATE
+  ) |>
+  distinct()
+
+out_name <- paste0(processed, "kill_by_prop.csv")
+write_csv(kill_by_prop, file.path(write_path, out_name))
 
 ##----END DATA PREP----

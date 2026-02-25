@@ -32,7 +32,7 @@ processed_path <- file.path("data/processed", pull_date)
 processed <- "processed_"
 
 # look up table property acres
-lut.property.acres <- read_csv(file.path(
+lut_property_acres <- read_csv(file.path(
   processed_path,
   "processed_lut_property_acres.csv"
 ))
@@ -332,7 +332,7 @@ plot(harvest_chronology$Hunt.Days, harvest_chronology$Take)
 #Generate final data
 final_agg_out_dat <- merge(
   harvest_chronology,
-  lut.property.acres,
+  lut_property_acres,
   by = c("AGRP_PRP_ID", "ALWS_AGRPROP_ID"),
   all.x = TRUE
 )
@@ -394,7 +394,7 @@ write.csv(
 ##----END----##
 
 missing_agrp_id <- unique(harvest_chronology$AGRP_PRP_ID[
-  harvest_chronology$AGRP_PRP_ID %!in% lut.property.acres$AGRP_PRP_ID
+  harvest_chronology$AGRP_PRP_ID %!in% lut_property_acres$AGRP_PRP_ID
 ])
 
 write.csv(

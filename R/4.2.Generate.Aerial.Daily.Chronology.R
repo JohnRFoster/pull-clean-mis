@@ -8,12 +8,6 @@ rm(list = ls())
 #.rs.restartR()
 gc()
 
-#----get correct data pull----
-pull.date <- config::get("pull.date")
-
-#---- write path ----
-write.path <- file.path("data/processed", pull.date)
-
 #----Load Libraries----
 library(reshape2)
 library(tidyr)
@@ -27,78 +21,102 @@ library(utils)
 source("R/FNC.MIS.calc.aerial.chronology.R")
 source("R/FNC.Misc.Utilities.R")
 
+#----Prep Data ----
+raw_dir <- "data/raw"
+
+pull_dates <- list.files(raw_dir)
+pull_dates_num <- as.numeric(gsub("-", "", pull_dates))
+pull_date <- pull_dates[which.max(pull_dates_num)]
+
+raw_data_dir <- "data/raw"
+raw_data_file <- "fs_national_all.csv"
+raw_data <- file.path(raw_data_dir, pull_date, raw_data_file)
+
+
+#---- processed path ----
+processed_path <- file.path("data/processed", pull_date)
+processed <- "processed_"
+
+# look up table property acres
+lut_property_acres <- read_csv(file.path(
+  processed_path,
+  "processed_lut_property_acres.csv"
+))
+
+# Read data
+df <- read_csv(raw_data)
+dat_agr_csv <- df |> raw_filter()
+dat_agr_csv2 <- alter.column.names(dat_agr_csv)
 
 #-------------------------------------------------------------------
 #----Generate summary of trap nights and kill by each trapping event
 
 #Read in Harvest Chronology
-trap.harvest.chronology <- read.csv(
+trap_harvest_chronology <- read.csv(
   file.path(
-    write.path,
-    "feral.swine.effort.take.aerial.chronology.ALL.csv"
+    processed_path,
+    "dev_feral.swine.effort.take.aerial.chronology.ALL.csv"
   ),
   stringsAsFactors = FALSE
 )
-trap.harvest.chronology <- trap.harvest.chronology[, -1]
-trap.harvest.chronology$WT_WORK_DATE <- as.Date(as.character(
-  trap.harvest.chronology$WT_WORK_DATE,
+
+trap_harvest_chronology <- trap_harvest_chronology[, -1]
+trap_harvest_chronology$WT_WORK_DATE <- as.Date(as.character(
+  trap_harvest_chronology$WT_WORK_DATE,
   "%y-%m-%d"
 ))
 
 #Add unk.prp.event.id
-trap.harvest.chronology$unk.prp.event.id <- paste0(
-  trap.harvest.chronology$AGRP_PRP_ID,
+trap_harvest_chronology$unk.prp.event.id <- paste0(
+  trap_harvest_chronology$AGRP_PRP_ID,
   "-",
-  trap.harvest.chronology$event.id
+  trap_harvest_chronology$event.id
 )
 
-date.lut <- calc.event.length(trap.harvest.chronology)
-
 #Adjust for Daily Trapping Summary
-
-trap.harvest.chronology <- trap.harvest.chronology[
+trap_harvest_chronology <- trap_harvest_chronology[
   order(
-    trap.harvest.chronology$AGRP_PRP_ID,
-    trap.harvest.chronology$WT_WORK_DATE
+    trap_harvest_chronology$AGRP_PRP_ID,
+    trap_harvest_chronology$WT_WORK_DATE
   ),
 ]
 
 
-trap.harvest.chronology <- calc.days.between.records(trap.harvest.chronology)
-trap.harvest.chronology <- calc.start.stop.by.record(
-  trap.harvest.chronology,
+trap_harvest_chronology <- calc.days.between.records(trap_harvest_chronology)
+trap_harvest_chronology <- calc.start.stop.by.record(
+  trap_harvest_chronology,
   adjustment = 0
 )
-trap.harvest.chronology <- add.within.event.id(trap.harvest.chronology)
+trap_harvest_chronology <- add.within.event.id(trap_harvest_chronology)
 
 
 #Assume first day active is 1
 
 #Remake Event ID
-trap.harvest.chronology$event.id <- paste0(
-  trap.harvest.chronology$event.id,
+trap_harvest_chronology$event.id <- paste0(
+  trap_harvest_chronology$event.id,
   ".",
-  trap.harvest.chronology$within.id
+  trap_harvest_chronology$within.id
 )
 
 #Remake Unique Event ID
-trap.harvest.chronology$unk.prp.event.id <- paste0(
-  trap.harvest.chronology$AGRP_PRP_ID,
+trap_harvest_chronology$unk.prp.event.id <- paste0(
+  trap_harvest_chronology$AGRP_PRP_ID,
   "-",
-  trap.harvest.chronology$event.id
+  trap_harvest_chronology$event.id
 )
 
 #Sort Data
-trap.harvest.chronology <- trap.harvest.chronology[
+trap_harvest_chronology <- trap_harvest_chronology[
   order(
-    -trap.harvest.chronology$AGRP_PRP_ID,
-    trap.harvest.chronology$WT_WORK_DATE
+    -trap_harvest_chronology$AGRP_PRP_ID,
+    trap_harvest_chronology$WT_WORK_DATE
   ),
 ]
 
 
 #Reorder things
-tmp <- trap.harvest.chronology[, c(
+tmp <- trap_harvest_chronology[, c(
   "AGRP_PRP_ID",
   "unk.prp.event.id",
   "ALWS_AGRPROP_ID",
@@ -115,15 +133,9 @@ tmp <- trap.harvest.chronology[, c(
 colnames(tmp)[which(colnames(tmp) == "within.event.str.date")] <- "Start.Date"
 colnames(tmp)[which(colnames(tmp) == "within.event.end.date")] <- "End.Date"
 
-
-#Generate final data
-lut.property.acres <- readr::read_csv(file.path(
-  write.path,
-  "processed_lut_property_acres.csv"
-))
 tmp <- merge(
   tmp,
-  lut.property.acres,
+  lut_property_acres,
   by = c("AGRP_PRP_ID", "ALWS_AGRPROP_ID"),
   all.x = TRUE
 )
@@ -165,8 +177,8 @@ nrow(tmp)
 write.csv(
   tmp,
   file.path(
-    write.path,
-    "feral.swine.effort.take.aerial.ALL.daily.csv"
+    processed_path,
+    "dev_feral.swine.effort.take.aerial.ALL.daily.csv"
   ),
   row.names = FALSE
 )

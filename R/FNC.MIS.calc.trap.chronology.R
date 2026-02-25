@@ -126,7 +126,9 @@ trap.chronology <- function(
         by = c("AGRP_PRP_ID", "WT_WORK_DATE", "CMP_NAME"),
         all.x = TRUE
       )
-      colnames(trap.harvest.chronology)[ncol(trap.harvest.chronology)] <- "Take"
+
+      trap.harvest.chronology <- trap.harvest.chronology |>
+        dplyr::rename(Take = WKR_QTY)
 
       #Ensure NAs in Take are 0
       tmp <- trap.harvest.chronology$Take
@@ -138,6 +140,12 @@ trap.chronology <- function(
     }
   } #Logical Assessment for trap method
   close(pb)
+
+  if ("ALWS_AGRPROP_ID.x" %in% colnames(trap.harvest.chronology)) {
+    trap.harvest.chronology <- trap.harvest.chronology |>
+      dplyr::select(-ALWS_AGRPROP_ID.x) |>
+      dplyr::rename(ALWS_AGRPROP_ID = ALWS_AGRPROP_ID.y)
+  }
 
   return(trap.harvest.chronology)
 } #END FUNCTION
