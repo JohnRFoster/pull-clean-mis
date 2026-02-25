@@ -115,7 +115,6 @@ FROM m2_work_task
 WHERE M2_DAMAGE_AGENT.ID = 8 
     AND M2_FATE.FATE_FATE = 'KILLED' 
     AND m2_work_task.wt_work_date >= to_date(' 2001-01-01 ','yyyy-mm-dd')
-    AND (M2_PROJECT.PROJ_NAME IN ('') OR M2_PROJECT.PROJ_NAME IS NULL)
 
           """
     )
