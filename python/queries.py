@@ -107,8 +107,7 @@ def single(cursor):
         ON M2_WORK_RESULT.ID = M2_FATE.FATE_WKR_ID
 
 WHERE M2_DAMAGE_AGENT.ID = 8 
-    AND M2_ALLOWED_SPECIES.ALWS_DA_ID = 8;
-          
+    AND M2_ALLOWED_SPECIES.ALWS_DA_ID = 8       
           """
     )
 
@@ -117,4 +116,52 @@ WHERE M2_DAMAGE_AGENT.ID = 8
     df = pd.DataFrame(cursor)
     df.columns = col_names
 
+    return df
+
+
+def effort(cursor, startDate):
+    cursor.execute(
+        """
+          SELECT 
+               M2_AGREEMENT_PROPERTY.AGRP_PRP_ID,
+			M2_WORK_TASK.WT_AGRPROP_ID,
+               M2_WORK_TASK_UOM.WTM_WT_ID,
+               M2_WORK_TASK.WT_WORK_DATE,
+               M2_WORK_TASK_UOM.WTM_QTY,
+               M2_UNIT_OF_MEASURE.UOM_NAME,
+               M2_DAMAGE_AGENT.ID,
+               M2_DAMAGE_AGENT.DA_NAME,
+               M2_WORK_TASK_COMP_UOM.WTCM_QTY,
+               M2_USE_TYPE.USET_NAME,
+               M2_COMPONENT.CMP_NAME,
+               M2_COMPONENT.CMP_TYPE
+          FROM 
+               M2_AGREEMENT_PROPERTY
+          INNER JOIN M2_WORK_TASK ON 
+               M2_AGREEMENT_PROPERTY.ID = M2_WORK_TASK.WT_AGRPROP_ID
+          INNER JOIN M2_CONFLICT_WORK ON
+               M2_WORK_TASK.ID = M2_CONFLICT_WORK.CNFW_WT_ID
+          INNER JOIN M2_DAMAGE_AGENT ON 
+               M2_DAMAGE_AGENT.ID = M2_CONFLICT_WORK.CNFW_DA_ID
+          INNER JOIN M2_WORK_TASK_UOM ON 
+               M2_WORK_TASK.ID = M2_WORK_TASK_UOM.WTM_WT_ID
+          INNER JOIN M2_UNIT_OF_MEASURE ON 
+               M2_UNIT_OF_MEASURE.ID = M2_WORK_TASK_UOM.WTM_UOM_ID
+          INNER JOIN M2_WORK_TASK_COMPONENT ON 
+               M2_WORK_TASK_COMPONENT.WTC_WT_ID = M2_WORK_TASK.ID
+          INNER JOIN M2_WORK_TASK_COMP_UOM ON 
+               M2_WORK_TASK_COMPONENT.ID = M2_WORK_TASK_COMP_UOM.WTCM_WTC_ID
+          INNER JOIN M2_COMPONENT ON 
+               M2_COMPONENT.ID = M2_WORK_TASK_COMPONENT.WTC_CMP_ID
+          INNER JOIN M2_USE_TYPE ON 
+               M2_USE_TYPE.ID = M2_WORK_TASK_COMPONENT.WTC_USET_ID
+          INNER JOIN M2_PROPERTY ON 
+               M2_PROPERTY.ID = M2_AGREEMENT_PROPERTY.AGRP_PRP_ID
+          WHERE M2_DAMAGE_AGENT.ID = 8"""
+    )
+
+    col_names = [row[0] for row in cursor.description]
+
+    df = pd.DataFrame(cursor)
+    df.columns = col_names
     return df
