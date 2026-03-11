@@ -34,7 +34,7 @@ if not os.path.exists(file_path):
     os.makedirs(file_path)
 
 # single pull
-csv_name = os.path.join(file_path, "fs_national_all.csv")
+csv_name = os.path.join(file_path, "fs_national_all_will.csv")
 
 if os.path.exists(csv_name) and not always_pull:
     print(f"{csv_name} already exists, skipping damage pull.")
