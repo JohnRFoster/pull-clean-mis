@@ -165,3 +165,46 @@ def effort(cursor, startDate):
     df = pd.DataFrame(cursor)
     df.columns = col_names
     return df
+
+def property(cursor, startDate):
+    cursor.execute(
+        """
+          SELECT 
+               M2_AGREEMENT_PROPERTY.AGRP_PRP_ID,
+               M2_PROPERTY.PRP_NAME,
+               M2_COUNTY.CNTY_NAME,
+               M2_COUNTY.CNTY_GSA_CNTY_CD,
+               M2_STATE.ST_NAME,
+               M2_STATE.ST_GSA_STATE_CD,
+               M2_PROPERTY_SIZE.PRPS_QTY,
+               M2_UNIT_OF_MEASURE.UOM_NAME,
+               M2_PROPERTY_SIZE.PRPS_PROP_TYPE,
+               -- M2_PROPERTY_UOL.PRPU_N_LAT,
+               -- M2_PROPERTY_UOL.PRPU_E_LONG,
+               M2_ALLOWED_SPECIES.ALWS_AGRPROP_ID,
+               M2_ALLOWED_SPECIES.ALWS_DA_ID
+          FROM 
+               M2_PROPERTY
+          INNER JOIN M2_AGREEMENT_PROPERTY ON 
+               M2_PROPERTY.ID = M2_AGREEMENT_PROPERTY.AGRP_PRP_ID
+          INNER JOIN M2_COUNTY ON 
+               M2_COUNTY.ID = M2_PROPERTY.PRP_CNTY_ID
+          INNER JOIN M2_STATE ON 
+               M2_STATE.ID  = M2_PROPERTY.PRP_ST_ID
+               AND M2_STATE.ID = M2_COUNTY.CNTY_ST_ID
+          INNER JOIN M2_PROPERTY_SIZE ON 
+               M2_PROPERTY.ID = M2_PROPERTY_SIZE.PRPS_PRP_ID
+          -- INNER JOIN M2_PROPERTY_UOL ON 
+               -- M2_PROPERTY.ID = M2_PROPERTY_UOL.PRPU_PRP_ID
+          INNER JOIN M2_UNIT_OF_MEASURE ON 
+               M2_UNIT_OF_MEASURE.ID = M2_PROPERTY_SIZE.PRPS_UOM_ID
+          INNER JOIN M2_ALLOWED_SPECIES ON 
+               M2_AGREEMENT_PROPERTY.ID = M2_ALLOWED_SPECIES.ALWS_AGRPROP_ID
+          WHERE M2_ALLOWED_SPECIES.ALWS_DA_ID = 8"""
+    )
+
+    col_names = [row[0] for row in cursor.description]
+
+    df = pd.DataFrame(cursor)
+    df.columns = col_names
+    return df
