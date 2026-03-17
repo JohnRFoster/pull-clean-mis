@@ -6,7 +6,7 @@
 #------------------------
 
 rm(list = ls())
-#.rs.restartR()
+# .rs.restartR()
 gc()
 
 #----Load Libraries----
@@ -43,48 +43,31 @@ source("R/FNC.MIS.calc.aerial.chronology.R")
 source("R/FNC.Misc.Utilities.R")
 source("R/FNC.MIS.Pre.Process.R")
 
+#----get correct data pull----
+raw_dir <- "data/raw"
+pull_date <- get_latest_pull_date(raw_dir)
+
+#---- read path ----
+read_path <- file.path(raw_dir, pull_date)
+
+#---- write path ----
+write_path <- file.path("data/processed", pull_date)
+processed <- "processed_"
+
+if (!dir.exists(write_path)) {
+  dir.create(write_path, recursive = TRUE)
+}
 
 #----Prep Data ----
 
-#--Property Data
-csv.name <- "fs_national_take_by_property.csv"
-file.name <- file.path(read_path, csv.name)
-df <- read_csv(file.name)
-dat.Agr.take <- df |>
-  distinct() |>
-  select(-PRPS_QTY) |>
-  mutate(AGRPROP_ID = WT_AGRPROP_ID)
-
-csv.name <- "fs_national_property.csv"
-file.name <- file.path(read_path, csv.name)
-df <- read_csv(file.name)
-dat.Agr.property <- df |>
-  distinct() |>
-  group_by(
-    AGRP_PRP_ID,
-    ALWS_AGRPROP_ID,
-    ALWS_DA_ID,
-    PRP_NAME,
-    ST_NAME,
-    ST_GSA_STATE_CD,
-    CNTY_NAME,
-    CNTY_GSA_CNTY_CD,
-    PRPS_PROP_TYPE
-  ) |>
-  filter(PRPS_QTY == max(PRPS_QTY)) |> # Assume max PRPS_QTY is property size
-  ungroup() |>
-  mutate(AGRPROP_ID = ALWS_AGRPROP_ID)
-
-dat.Agr <- left_join(dat.Agr.take, dat.Agr.property)
-
-#--Add combined id for convience
-#dat.Agr$unk.id <- paste0(dat.Agr$AGRP_PRP_ID,".",dat.Agr$ALWS_AGRPROP_ID,".",dat.Agr$ALWS_DA_ID)
-
-#dat.Agr<-dat.Agr[dat.Agr$DA_NAME=="SWINE, FERAL",]
+csv_name <- "fs_national_all.csv"
+file_name <- file.path(read_path, csv_name)
+df <- read_csv(file_name)
+dat <- df |> raw_filter()
 
 territories <- c("PUERTO RICO", "VIRGIN ISLANDS", "GUAM")
 
-all_state_codes <- dat.Agr |>
+all_state_codes <- dat |>
   select(ST_NAME, ST_GSA_STATE_CD) |>
   distinct() |>
   filter(!ST_NAME %in% territories)
@@ -96,76 +79,53 @@ territory_codes <- tibble(
 
 states_and_territories <- bind_rows(all_state_codes, territory_codes)
 
-dat.Agr.ter <- left_join(
-  select(dat.Agr, -ST_GSA_STATE_CD),
+dat <- left_join(
+  select(dat, -ST_GSA_STATE_CD),
   states_and_territories,
   by = "ST_NAME"
 )
 
-dat.Agr2 <- dat.Agr.ter[complete.cases(dat.Agr.ter$ST_GSA_STATE_CD), ]
+#--Property Data
+kill_by_prop <- dat |>
+  distinct()
 
-dat.Agr3 <- alter.columns(dat.Agr2)
-
-#Assign
-csv.name <- "species.look.up.csv"
-spc.lut <- read_csv(file.path("data", csv.name))
-
-tmp <- merge(
-  dat.Agr3,
-  spc.lut,
-  by.x = "DA_NAME",
-  by.y = "species",
-  all.x = TRUE
-)
-
-colnames(tmp)[ncol(tmp)] <- "DA_NAME_TYPE"
-
-file.name <- paste0("fs_national_property.csv")
-out.name <- paste0(processed, file.name)
-write_csv(tmp, file.path(write_path, out.name))
-
-#--Make property lut
-dat.Agr4 <- dat.Agr3[dat.Agr3$DA_NAME == "SWINE, FERAL", ]
-lut.property.acres <- make.property.lut(dat.Agr4)
-lut.property.acres <- lut.property.acres[lut.property.acres$TOTAL.LAND > 0, ]
-out.name <- paste0(processed, "lut_property_acres.csv")
-write_csv(lut.property.acres, file.path(write_path, out.name))
-
-#--Take Data
-csv.name <- paste0("fs_national_take_by_method.csv")
-file.name <- file.path(read_path, csv.name)
-dat.Kill <- read_csv(file.name)
-dat.Kill <- distinct(dat.Kill)
-dat.Kill <- dplyr::rename(dat.Kill, ALWS_AGRPROP_ID = WT_AGRPROP_ID)
-
-# Convert Dates to R Dates
-dat.Kill$WT_WORK_DATE <- as.Date(dat.Kill$WT_WORK_DATE, "%d-%b-%y")
-out.name <- paste0(processed, csv.name)
-write_csv(dat.Kill, file.path(write_path, out.name))
-
+out_name <- paste0(processed, "kill_by_prop.csv")
+write_csv(kill_by_prop, file.path(write_path, out_name))
 
 #--Effort
-file.name <- paste0("fs_national_effort.csv")
+file_name <- paste0("fs_national_effort.csv")
 
-dat.Eff <- read_csv(file.path(read_path, file.name))
-dat.Eff <- distinct(dat.Eff)
-dat.Eff <- dplyr::rename(dat.Eff, ALWS_AGRPROP_ID = WT_AGRPROP_ID)
-dat.Eff <- alter.column.names(dat.Eff)
+dat_eff <- read_csv(file.path(read_path, file_name))
+dat_eff <- distinct(dat_eff)
+dat_eff <- dplyr::rename(dat_eff, ALWS_AGRPROP_ID = WT_AGRPROP_ID)
+dat_eff <- alter.column.names(dat_eff)
 
 # Convert Dates to R Dates
-dat.Eff$WT_WORK_DATE <- as.Date(dat.Eff$WT_WORK_DATE, "%d-%b-%y")
-out.name <- paste0(processed, file.name)
-write_csv(dat.Eff, file.path(write_path, out.name))
+dat_eff$WT_WORK_DATE <- as.Date(dat_eff$WT_WORK_DATE, "%d-%b-%y")
+out_name <- paste0(processed, file_name)
+write_csv(dat_eff, file.path(write_path, out_name))
 
+#--Make property tables
+file_name <- paste0("fs_national_property.csv")
 
-#--Take by Property
-file.name <- paste0("fs_national_take_by_property.csv")
+dat_prop <- read_csv(file.path(read_path, file_name))
+dat_prop <- distinct(dat_prop)
+dat_prop <- alter.column.names(dat_prop)
 
-dat.PropKill <- read_csv(file.path(read_path, file.name))
-dat.PropKill <- distinct(dat.PropKill)
-dat.PropKill <- dplyr::rename(dat.PropKill, ALWS_AGRPROP_ID = WT_AGRPROP_ID)
+dat_prop <- left_join(
+  select(dat_prop, -ST_GSA_STATE_CD),
+  states_and_territories
+)
 
-out.name <- paste0(processed, file.name)
-write_csv(dat.PropKill, file.path(write_path, out.name))
+out_name <- paste0(processed, file_name)
+write_csv(dat_prop, file.path(write_path, out_name))
 
-##----END DATA PREP----
+# look up table
+lut <- make.property.lut(dat_prop)
+lut_property_acres <- lut |>
+  filter(TOTAL.LAND > 0)
+
+out_name <- paste0(processed, "lut_property_acres.csv")
+write_csv(lut_property_acres, file.path(write_path, out_name))
+
+## ----END DATA PREP----

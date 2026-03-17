@@ -47,3 +47,36 @@ else:
 
     # write as csv
     df.to_csv(csv_name, index=False)
+
+# effort pull
+csv_name = os.path.join(file_path, "fs_national_effort.csv")
+
+if os.path.exists(csv_name) and not always_pull:
+    print(f"{csv_name} already exists, skipping effort pull.")
+else:
+    print("Pulling effort data...")
+
+    df = queries.effort(cursor, myDate)
+
+    print("Effort data pulled successfully.")
+
+    # write as csv
+    df.to_csv(csv_name, index=False)
+
+# property pull
+csv_name = os.path.join(file_path, "fs_national_property.csv")
+
+if os.path.exists(csv_name) and not always_pull:
+    print(f"{csv_name} already exists, skipping property pull.")
+else:
+    print("Pulling property data...")
+
+    df = queries.property(cursor, myDate)
+
+    print("property data pulled successfully.")
+
+    # write as csv
+    df.to_csv(csv_name, index=False)
+
+
+connection.close()

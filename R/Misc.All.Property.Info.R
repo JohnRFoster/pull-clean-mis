@@ -5,12 +5,19 @@
 # John Foster
 #----------------------------------
 
+# DEV: move to pre process script
+
 library(readr)
 library(dplyr)
 library(tidyr)
+source("R/FNC.Misc.Utilities.R")
 
-#----get correct data pull----
-pull.date <- config::get("pull.date")
+# ----get correct data pull----
+raw_dir <- "data/raw"
+pull_date <- get_latest_pull_date(raw_dir)
+
+#---- read path ----
+read_path <- file.path(raw_dir, pull_date)
 
 county_areas <- read_csv("data/countyArea.csv")
 county_areas <- county_areas |>
@@ -32,7 +39,7 @@ all_county_info <- left_join(county_areas, state_abbr) |>
 
 all_properties <- read_csv(file.path(
   "data/processed",
-  pull.date,
+  pull_date,
   "processed_fs_national_property.csv"
 ))
 
