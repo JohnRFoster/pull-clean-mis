@@ -1,5 +1,7 @@
 rm(list = ls())
 
+library(dplyr)
+
 #----Prep Data ----
 raw_dir <- "data/raw"
 
@@ -10,7 +12,7 @@ pull_date <- pull_dates[which.max(pull_dates_num)]
 processed_path <- file.path("data/processed", pull_date)
 processed <- "processed_"
 
-##----SNARE
+## ----SNARE
 dat_snare <- read.csv(file.path(
   processed_path,
   "dev_feral.swine.effort.take.snare.ALL.daily.csv"
@@ -19,7 +21,7 @@ dat_snare <- read.csv(file.path(
 dat_snare <- dat_snare[!is.na(dat_snare$AGRP_PRP_ID), ]
 nrow(dat_snare)
 
-#####This scaling needs some revisiting
+##### This scaling needs some revisiting
 
 dat_snare$CMP.Qty <- dat_snare$trap.nights / dat_snare$event.length
 dat_snare$HOURS <- dat_snare$event.length * 24
@@ -55,7 +57,7 @@ colnames(dat_snare) <- tolower(colnames(dat_snare))
 nrow(dat_snare)
 
 
-##----TRAP
+## ----TRAP
 dat_trap <- read.csv(file.path(
   processed_path,
   "dev_feral.swine.effort.take.trap.ALL.daily.events.csv"
@@ -77,7 +79,7 @@ colnames(dat_trap) <- tolower(colnames(dat_trap))
 nrow(dat_trap)
 
 
-##----FIREARMS
+## ----FIREARMS
 dat_firearms <- read.csv(file.path(
   processed_path,
   "dev_feral.swine.effort.take.firearms.ALL.daily.csv"
@@ -104,7 +106,7 @@ colnames(dat_firearms) <- tolower(colnames(dat_firearms))
 nrow(dat_firearms)
 
 
-##----AERIAL
+## ----AERIAL
 dat_aerial <- read.csv(file.path(
   processed_path,
   "dev_feral.swine.effort.take.aerial.ALL.daily.csv"
@@ -118,7 +120,7 @@ dat_aerial$CMP.Hours <- dat_aerial$Flight.Hours
 dat_aerial$WT_WORK_DATE <- dat_aerial$Start.Date
 
 dat_aerial <- dat_aerial |>
-  rename(start.date = Start.Date, end.date = End.Date) |>
+  dplyr::rename(start.date = Start.Date, end.date = End.Date) |>
   select(all_of(select_cols))
 colnames(dat_aerial) <- tolower(colnames(dat_aerial))
 
@@ -131,7 +133,7 @@ ncol(dat_trap)
 ncol(dat_snare)
 
 
-##----MERGE ALL INTO SINGLE FILE
+## ----MERGE ALL INTO SINGLE FILE
 all_methods <- rbind.data.frame(dat_aerial, dat_firearms, dat_trap, dat_snare)
 
 all_methods$end.date <- as.Date(all_methods$end.date)

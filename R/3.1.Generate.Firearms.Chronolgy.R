@@ -4,6 +4,7 @@ rm(list = ls())
 library(reshape2)
 library(tidyr)
 library(plyr)
+library(dplyr)
 library(modeest)
 library(readr)
 library(operators)
@@ -42,38 +43,49 @@ df <- read_csv(raw_data)
 dat_agr_csv <- df |> raw_filter()
 dat_agr_csv2 <- alter.column.names(dat_agr_csv)
 
+effort_file <- "processed_fs_national_effort.csv"
+dat_eff <- read_csv(file.path(
+  processed_path,
+  effort_file
+)) |>
+  mutate(unk.id = paste0(AGRP_PRP_ID, ".", ALWS_AGRPROP_ID))
 
-##----END DATA PREP----
+# Generate Take by property
+kill_prop_file <- "processed_kill_by_prop.csv"
+kill_by_prop <- read_csv(file.path(
+  processed_path,
+  kill_prop_file
+)) |>
+  dplyr::rename(Take = WKR_QTY)
+
+## ----END DATA PREP----
 
 #--Subset Data to Only Ground Hunting Using FireArms
 
 #--Identify only those events that used firearms
 firearms_vec <- c("FIREARMS")
 
-tmp <- dat_agr_csv2 |>
+tmp <- dat_eff |>
   filter(CMP_NAME %in% firearms_vec)
 
-unk_events <- unique(tmp[, c("AGRP_PRP_ID", "ALWS_AGRPROP_ID", "WT_WORK_DATE")])
+unk_events <- tmp |>
+  select(AGRP_PRP_ID, ALWS_AGRPROP_ID, WT_WORK_DATE) |>
+  distinct() |>
+  mutate(firearms.used = "firearms")
 
-unk_events <- cbind.data.frame(
-  unk_events,
-  firearms.used = rep("firearms", nrow(unk_events))
-)
+# Add unique event ID
+unk_events$event.id <- 1:nrow(unk_events)
 
-#Add unique event ID
-unk_events$event.id <- seq(1, nrow(unk_events), 1)
-
-tmp <- merge(
-  dat_agr_csv2,
-  unk_events,
-  by = c("AGRP_PRP_ID", "ALWS_AGRPROP_ID", "WT_WORK_DATE"),
-  all.y = TRUE
-)
-head(tmp)
+tmp <- left_join(unk_events, dat_eff)
+glimpse(tmp)
 nrow(tmp)
 
-#Determine Events that Are Ground Hunting
+tmp_kill <- left_join(kill_by_prop, unk_events) |>
+  filter(!is.na(event.id))
+
+# Determine Events that Are Ground Hunting
 plyr::count(tmp$CMP_NAME)
+plyr::count(tmp_kill$CMP_NAME)
 
 cmp_name <- c(
   "SPOTLIGHT",
@@ -96,7 +108,11 @@ firearms_associated <- tmp |>
 
 nrow(firearms_associated)
 
-#Remove any events associated with other methods
+firearms_associated_kill <- tmp_kill |>
+  filter(event.id %in% event_vec)
+nrow(firearms_associated_kill)
+
+# Remove any events associated with other methods
 cmp_name <- c(
   "FIXED WING",
   "HELICOPTER",
@@ -127,21 +143,32 @@ firearms_associated <- firearms_associated |>
   filter(!event.id %in% event_vec)
 
 nrow(firearms_associated)
-head(firearms_associated)
+glimpse(firearms_associated)
 plyr::count(firearms_associated$CMP_NAME)
 
-#Reset CMP_NAME
-firearms_associated[
-  firearms_associated$CMP_NAME != "FIREARMS",
-  "CMP_NAME"
-] <- "OTHER"
-plyr::count(firearms_associated$CMP_NAME)
+firearms_associated_kill <- firearms_associated_kill |>
+  filter(!event.id %in% event_vec)
 
-#Set CMP_NAME = other to 0 for counting purposes
+nrow(firearms_associated_kill)
+glimpse(firearms_associated_kill)
+plyr::count(firearms_associated_kill$CMP_NAME)
+
+# Reset CMP_NAME
+firearms_associated <- firearms_associated |>
+  mutate(CMP_NAME = if_else(CMP_NAME != "FIREARMS", "OTHER", CMP_NAME))
+firearms_associated_kill <- firearms_associated_kill |>
+  mutate(CMP_NAME = if_else(CMP_NAME != "FIREARMS", "OTHER", CMP_NAME))
+
+plyr::count(firearms_associated$CMP_NAME)
+plyr::count(firearms_associated_kill$CMP_NAME)
+
+# Set CMP_NAME = other to 0 for counting purposes
 firearms_associated <- firearms_associated |>
   mutate(WTCM_QTY = ifelse(CMP_NAME == "OTHER", 0, WTCM_QTY))
+firearms_associated_kill <- firearms_associated_kill |>
+  mutate(WTCM_QTY = ifelse(CMP_NAME == "OTHER", 0, WTCM_QTY))
 
-#Set WTM_QTY = 0 using WORK_TASK_UOM
+# Set WTM_QTY = 0 using WORK_TASK_UOM
 uom_name <- c(
   "HOURS",
   "MINUTES",
@@ -152,9 +179,9 @@ uom_name <- c(
 )
 
 firearms_associated <- firearms_associated |>
-  mutate(WTM_QTY = ifelse(WORK_TASK_UOM %in% uom_name, WTM_QTY, 0))
+  mutate(WTM_QTY = ifelse(UOM_NAME %in% uom_name, WTM_QTY, 0))
 
-plyr::count(firearms_associated[, c("WORK_TASK_UOM", "WTM_QTY")])
+plyr::count(firearms_associated[, c("UOM_NAME", "WTM_QTY")])
 
 tmp_dat <- firearms_associated
 
@@ -164,36 +191,36 @@ tmp_dat <- firearms_associated
 tmp_dat <- tmp_dat |>
   mutate(
     WTM_QTY = ifelse(
-      WORK_TASK_UOM == "MINUTES",
+      UOM_NAME == "MINUTES",
       WTM_QTY / 60,
       WTM_QTY
     ),
-    WORK_TASK_UOM = ifelse(
-      WORK_TASK_UOM == "MINUTES",
+    UOM_NAME = ifelse(
+      UOM_NAME == "MINUTES",
       "HOURS",
-      WORK_TASK_UOM
+      UOM_NAME
     )
   )
 
-count(tmp_dat$CMP_NAME)
-count(tmp_dat$CMP_TYPE)
-count(tmp_dat$USET_NAME)
+plyr::count(tmp_dat$CMP_NAME)
+plyr::count(tmp_dat$CMP_TYPE)
+plyr::count(tmp_dat$USET_NAME)
 
-#--Remove implosable values
+#--Remove implausable values
 summary(tmp_dat$WTM_QTY)
 summary(tmp_dat$WTCM_QTY)
 
-#Set USET_NAME = DISCHARGED to 0
+# Set USET_NAME = DISCHARGED to 0
 tmp_dat <- tmp_dat |>
   mutate(WTCM_QTY = ifelse(USET_NAME == "DISCHARGED", 0, WTCM_QTY))
 
 #--Rework duplicate hours in WTM_QTY
 
-#Drop unneeded columns
+# Drop unneeded columns
 tmp_dat <- tmp_dat[, colnames(tmp_dat) %!in% c("CMP_TYPE", "X")]
 
-#Remove easy duplicates
-tmp_dat <- unique(tmp_dat)
+# Remove easy duplicates
+tmp_dat <- distinct(tmp_dat)
 
 event_vec <- unique(tmp_dat$event.id)
 
@@ -211,14 +238,14 @@ for (i in seq_along(event_vec)) {
     tmp_dat$event.id == event_vec[i] & tmp_dat$CMP_NAME == "OTHER",
     "WTM_QTY"
   ] <- other_vec
-} #END Loop
+} # END Loop
 
 #--END Rework duplicate hours
 
 #-- Adjust number of firearms
-#tmp_dat<-adjust.firearm.data(tmp_dat,thershold=5)
+# tmp_dat<-adjust.firearm.data(tmp_dat,thershold=5)
 
-#Aggregate time
+# Aggregate time
 tmp <- aggregate(
   cbind(WTM_QTY) ~ ALWS_AGRPROP_ID + AGRP_PRP_ID + CMP_NAME + WT_WORK_DATE,
   data = tmp_dat,
@@ -234,7 +261,7 @@ tmp_time[tmp_time$FIREARMS == tmp_time$OTHER, "HOURS"] <- tmp_time[
   "FIREARMS"
 ]
 
-#Aggegate # firearms
+# Aggregate # firearms
 tmp <- aggregate(
   cbind(WTCM_QTY) ~ ALWS_AGRPROP_ID + AGRP_PRP_ID + WT_WORK_DATE,
   data = tmp_dat,
@@ -249,10 +276,10 @@ tmp <- merge(
   all.y = TRUE
 )
 
-#Ensure data is ordered
+# Ensure data is ordered
 wide_data <- tmp[order(tmp$AGRP_PRP_ID, tmp$WT_WORK_DATE), , drop = FALSE]
 
-#Drop those with WTCM = 0
+# Drop those with WTCM = 0
 wide_data <- wide_data[wide_data$WTCM_QTY != 0, ]
 
 #--Rename columns
@@ -262,46 +289,37 @@ colnames(wide_data)[which(colnames(wide_data) == "WTCM_QTY")] <- "FIREARMS"
 
 #--Add CMP_NAME
 wide_data$CMP_NAME <- "FIREARMS"
+firearms_associated_kill$CMP_NAME <- "FIREARMS"
 
-in.dat <- wide_data
-##END
-
-#----Add Event Ids
-
-#Generate Take by property
-kill_by_prop <- dat_agr_csv2 |>
+x_dat <- lut_property_acres |>
   select(
-    ALWS_AGRPROP_ID,
     AGRP_PRP_ID,
+    ALWS_AGRPROP_ID,
     ST_NAME,
+    CNTY_NAME,
     ST_GSA_STATE_CD,
-    CNTY_GSA_CNTY_CD,
-    WTCM_QTY, # CMP_QTY
-    CMP_NAME,
-    WKR_QTY, # TAKE
-    WT_WORK_DATE
+    CNTY_GSA_CNTY_CD
   ) |>
-  distinct() |>
-  select(
-    AGRP_PRP_ID,
-    ALWS_AGRPROP_ID,
-    WT_WORK_DATE,
-    WKR_QTY,
-    WTCM_QTY,
-    CMP_NAME
-  ) |>
-  dplyr::rename(Take = WKR_QTY)
+  distinct()
+in_dat <- wide_data
 
-#Merge trap chronology and take data
+in_dat2 <- left_join(x_dat, in_dat) |>
+  filter(!is.na(CMP_NAME)) |>
+  glimpse()
+
+## END
+
+# Merge trap chronology and take data
 harvest_chronology <- merge(
-  in.dat,
-  kill_by_prop,
-  by = c("AGRP_PRP_ID", "ALWS_AGRPROP_ID", "WT_WORK_DATE", "CMP_NAME"),
+  in_dat2,
+  firearms_associated_kill,
+  # by = c("AGRP_PRP_ID", "ALWS_AGRPROP_ID", "WT_WORK_DATE", "CMP_NAME"),
   all.x = TRUE
 )
 
 harvest_chronology <- harvest_chronology |>
   mutate(Take = ifelse(is.na(Take), 0, Take))
+glimpse(harvest_chronology)
 
 harvest_chronology[order(-harvest_chronology$Take), ]
 
@@ -311,7 +329,7 @@ harvest_chronology[order(-harvest_chronology$Take), ]
 harvest_chronology <- harvest_chronology |>
   mutate(
     FIREARMS = ifelse(FIREARMS == Take & FIREARMS > 1, 1, FIREARMS),
-    HOURS = HOURS * FIREARMS,
+    Hunt.Hours = HOURS * FIREARMS,
     Hunt.Days = HOURS / 24
   ) |>
   filter(HOURS < 24)
@@ -324,48 +342,52 @@ plot(log(harvest_chronology$Hunt.Days), harvest_chronology$Take)
 plot(harvest_chronology$Hunt.Days, harvest_chronology$Take)
 
 
-#Remove Implosible Data
-#harvest_chronology<-harvest_chronology[harvest_chronology$Take<40,]
+# Remove Implosible Data
+# harvest_chronology<-harvest_chronology[harvest_chronology$Take<40,]
 
 #----Merge County location data
 
-#Generate final data
+harvest_chronology <- harvest_chronology |>
+  select(-ST_NAME, -ST_GSA_STATE_CD, -CNTY_GSA_CNTY_CD)
+
+# Generate final data
 final_agg_out_dat <- merge(
   harvest_chronology,
   lut_property_acres,
-  by = c("AGRP_PRP_ID", "ALWS_AGRPROP_ID"),
+  by = c("AGRP_PRP_ID", "ALWS_AGRPROP_ID", "CNTY_NAME"),
   all.x = TRUE
 )
 
-final_agg_out_dat <- final_agg_out_dat[, c(
-  "AGRP_PRP_ID",
-  "ALWS_AGRPROP_ID",
-  "WT_WORK_DATE",
-  "ST_NAME",
-  "CNTY_NAME",
-  "ST_GSA_STATE_CD",
-  "CNTY_GSA_CNTY_CD",
-  "FIPS",
-  "TOTAL.LAND",
-  "CMP_NAME",
-  "HOURS",
-  "FIREARMS",
-  "Hunt.Hours",
-  "Hunt.Days",
-  "Take"
-)]
+final_agg_out_dat <- final_agg_out_dat |>
+  select(
+    AGRP_PRP_ID,
+    ALWS_AGRPROP_ID,
+    WT_WORK_DATE,
+    ST_NAME,
+    CNTY_NAME,
+    ST_GSA_STATE_CD,
+    CNTY_GSA_CNTY_CD,
+    FIPS,
+    TOTAL.LAND,
+    CMP_NAME,
+    HOURS,
+    FIREARMS,
+    Hunt.Hours,
+    Hunt.Days,
+    Take
+  )
 
 final_agg_out_dat <- final_agg_out_dat[
   order(final_agg_out_dat$AGRP_PRP_ID, final_agg_out_dat$WT_WORK_DATE),
 ]
 nrow(final_agg_out_dat)
 
-#Limit to only those with acreage
+# Limit to only those with acreage
 final_agg_out_dat <- final_agg_out_dat[final_agg_out_dat$TOTAL.LAND > 0, ]
 nrow(final_agg_out_dat)
 
 final_agg_out_dat <- final_agg_out_dat[
-  is.na(final_agg_out_dat$AGRP_PRP_ID) == FALSE,
+  !is.na(final_agg_out_dat$AGRP_PRP_ID),
 ]
 nrow(final_agg_out_dat)
 
@@ -391,7 +413,7 @@ write.csv(
     "dev_feral.swine.effort.take.firearms.ALL.daily.csv"
   )
 )
-##----END----##
+## ----END----##
 
 missing_agrp_id <- unique(harvest_chronology$AGRP_PRP_ID[
   harvest_chronology$AGRP_PRP_ID %!in% lut_property_acres$AGRP_PRP_ID

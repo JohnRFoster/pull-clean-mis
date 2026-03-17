@@ -66,7 +66,7 @@ calc.event.length <- function(in.dat) {
     as.numeric(date.lut$event.length)
 
   return(date.lut)
-} #END Function
+} # END Function
 
 
 #----FNC Alter Columns
@@ -81,7 +81,7 @@ alter.columns <- function(dat) {
   }
 
   return(dat)
-} #END Function
+} # END Function
 
 
 #----FNC Alter Columns
@@ -89,7 +89,7 @@ alter.column.names <- function(dat) {
   colnames(dat)[which(colnames(dat) %in% c("UOM_NAME1"))] <- "UOM_NAME"
 
   return(dat)
-} #END Function
+} # END Function
 
 
 #----FNC Calculate days elapsed since last record
@@ -116,11 +116,11 @@ calc.days.between.records <- function(in.dat) {
     }
 
     in.dat[in.dat$AGRP_PRP_ID == property.vec[k], "day.diff"] <- day.diff.vec
-    #print(paste0(round( (k/length(property.vec))*100,digits=1), " %"))
+    # print(paste0(round( (k/length(property.vec))*100,digits=1), " %"))
     setTxtProgressBar(pb, k)
-  } #END Loop
+  } # END Loop
   return(in.dat)
-} #END FUNCTION
+} # END FUNCTION
 
 
 #----FNC Calculates Start and Stop Dates for Each Record
@@ -149,7 +149,7 @@ calc.start.stop.by.record <- function(in.dat, adjustment = 0) {
         )
         within.event.end.date[i] <- as.character(tmp$WT_WORK_DATE[i])
       }
-    } #END LOOP
+    } # END LOOP
 
     in.dat[
       in.dat$unk.prp.event.id == property.event.vec[k],
@@ -161,13 +161,13 @@ calc.start.stop.by.record <- function(in.dat, adjustment = 0) {
     ] <- within.event.end.date
 
     setTxtProgressBar(pb, k)
-  } #END LOOP
+  } # END LOOP
 
   in.dat$within.event.str.date <- lubridate::ymd(in.dat$within.event.str.date)
   in.dat$within.event.end.date <- lubridate::ymd(in.dat$within.event.end.date)
 
   return(in.dat)
-} #END FUNCTION
+} # END FUNCTION
 
 
 #----FNC Calculates Start and Stop Dates for Each Record
@@ -188,13 +188,13 @@ add.within.event.id <- function(in.dat) {
   in.dat <- in.dat[order(in.dat$unk.prp.event.id), ]
   in.dat$within.id <- out.vec
 
-  #Reorder
+  # Reorder
   in.dat <- in.dat[
     order(in.dat$AGRP_PRP_ID, in.dat$event.id, in.dat$WT_WORK_DATE),
   ]
 
   return(in.dat)
-} #END FUNCTION
+} # END FUNCTION
 
 
 #--FNC - Make property lut
@@ -206,102 +206,77 @@ make.property.lut <- function(dat.Agr) {
 
   dat.Agr[let.vec, "PRPS_PROP_TYPE"] <- "UNKNOWN"
 
-  ##--Make Unique Properties--
+  ## --Make Unique Properties--
 
-  #Simplify land list
+  # Simplify land list
   fed.land.vec <- c(
     "BLM LAND",
     "FISH AND WILDLIFE SRVC",
     "FOREST SERVICE LAND",
     "OTHER FEDERAL LAND",
-    "OTHER PUBLIC LAND"
+    "OTHER PUBLIC LAND",
+    "FOREST SERVICE LAND - WILDERNESS AREA"
   )
-  dat.Agr[
-    dat.Agr$PRPS_PROP_TYPE %in% fed.land.vec,
-    "PRPS_PROP_TYPE"
-  ] <- "FEDERAL LAND"
 
-  #Aggregate properties with same AGRP_PRP_ID
-  tmp <- aggregate(
-    as.numeric(PRPS_QTY) ~ AGRP_PRP_ID +
-      ALWS_AGRPROP_ID +
-      ST_NAME +
-      CNTY_NAME +
-      ST_GSA_STATE_CD +
-      CNTY_GSA_CNTY_CD +
-      PRPS_PROP_TYPE,
-    data = dat.Agr,
-    FUN = max,
-    na.action = na.pass
-  )
-  colnames(tmp)[ncol(tmp)] <- "PRPS_QTY"
+  # Aggregate properties with same AGRP_PRP_ID and across federal land types
+  tmp <- dat.Agr |>
+    select(
+      PRPS_QTY,
+      AGRP_PRP_ID,
+      ALWS_AGRPROP_ID,
+      ST_NAME,
+      CNTY_NAME,
+      ST_GSA_STATE_CD,
+      CNTY_GSA_CNTY_CD,
+      PRPS_PROP_TYPE
+    ) |>
+    distinct() |>
+    group_by(
+      AGRP_PRP_ID,
+      ALWS_AGRPROP_ID,
+      ST_NAME,
+      CNTY_NAME,
+      ST_GSA_STATE_CD,
+      CNTY_GSA_CNTY_CD,
+      PRPS_PROP_TYPE
+    ) |>
+    filter(PRPS_QTY == max(PRPS_QTY)) |>
+    mutate(
+      PRPS_PROP_TYPE = if_else(
+        PRPS_PROP_TYPE %in% fed.land.vec,
+        "FEDERAL LAND",
+        PRPS_PROP_TYPE
+      )
+    ) |>
+    reframe(PRPS_QTY = sum(PRPS_QTY))
+
   lut.property.acres <- spread(tmp, PRPS_PROP_TYPE, PRPS_QTY)
-  #lut.property.acres <- lut.property.acres[ , -which(names(lut.property.acres) %in% c("V1"))]
+  # lut.property.acres <- lut.property.acres[ , -which(names(lut.property.acres) %in% c("V1"))]
 
   colnames(lut.property.acres) <- gsub(" ", ".", colnames(lut.property.acres))
 
-  #colnames(lut.property.acres)<-c("AGRP_PRP_ID","ALWS_AGRPROP_ID","ST_NAME","CNTY_NAME","ST_FIPS","CNTY_FIPS","COUNTY.OR.CITY.LAND","FEDERAL.LAND", "MILITARY.LAND","PRIVATE.LAND","STATE.LAND","TRIBAL.LAND","UNKNOWN")
+  # colnames(lut.property.acres)<-c("AGRP_PRP_ID","ALWS_AGRPROP_ID","ST_NAME","CNTY_NAME","ST_FIPS","CNTY_FIPS","COUNTY.OR.CITY.LAND","FEDERAL.LAND", "MILITARY.LAND","PRIVATE.LAND","STATE.LAND","TRIBAL.LAND","UNKNOWN")
 
   lut.property.acres$TOTAL.LAND <- rowSums(
     lut.property.acres[, grepl("LAND", colnames(lut.property.acres))],
     na.rm = TRUE
   )
 
-  ##--Add FIPS Codes--
+  ## --Add FIPS Codes--
 
-  #Convert codes to text
-  lut.property.acres$ST_GSA_STATE_CD <- as.character(
-    lut.property.acres$ST_GSA_STATE_CD
-  )
-  lut.property.acres$CNTY_GSA_CNTY_CD <- as.character(
-    lut.property.acres$CNTY_GSA_CNTY_CD
-  )
-
-  vec <- lut.property.acres[
-    nchar(lut.property.acres$ST_GSA_STATE_CD) == 1,
-    "ST_GSA_STATE_CD"
-  ]
-  lut.property.acres[
-    nchar(lut.property.acres$ST_GSA_STATE_CD) == 1,
-    "ST_GSA_STATE_CD"
-  ] <- paste0("0", vec)
-
-  vec <- lut.property.acres[
-    nchar(lut.property.acres$CNTY_GSA_CNTY_CD) == 1,
-    "CNTY_GSA_CNTY_CD"
-  ]
-  lut.property.acres[
-    nchar(lut.property.acres$CNTY_GSA_CNTY_CD) == 1,
-    "CNTY_GSA_CNTY_CD"
-  ] <- paste0("00", vec)
-
-  vec <- lut.property.acres[
-    nchar(lut.property.acres$CNTY_GSA_CNTY_CD) == 2,
-    "CNTY_GSA_CNTY_CD"
-  ]
-  lut.property.acres[
-    nchar(lut.property.acres$CNTY_GSA_CNTY_CD) == 2,
-    "CNTY_GSA_CNTY_CD"
-  ] <- paste0("0", vec)
-
-  lut.property.acres$FIPS <- paste0(
-    lut.property.acres$ST_GSA_STATE_CD,
-    lut.property.acres$CNTY_GSA_CNTY_CD
-  )
-
-  #Reorder columns
-  lut.property.acres <- subset(
-    lut.property.acres,
-    select = c(
-      AGRP_PRP_ID:CNTY_GSA_CNTY_CD,
-      FIPS,
-      COUNTY.OR.CITY.LAND:TOTAL.LAND
+  # Convert codes to text
+  lut.property.acres <- lut.property.acres |>
+    mutate(
+      ST_GSA_STATE_CD = as.character(ST_GSA_STATE_CD),
+      CNTY_GSA_CNTY_CD = as.character(CNTY_GSA_CNTY_CD),
+      ST_GSA_STATE_CD = sprintf("%02s", ST_GSA_STATE_CD),
+      CNTY_GSA_CNTY_CD = sprintf("%03s", CNTY_GSA_CNTY_CD),
+      FIPS = paste0(ST_GSA_STATE_CD, CNTY_GSA_CNTY_CD)
     )
-  )
 
   #--Fill in missing acerages with county mean property size
 
-  lut.property.acres <- generate.mean.property.size(
+  lut.property.acres2 <- generate.mean.property.size(
     lut.property.acres,
     area.col = "TOTAL.LAND",
     area.thershold = 2,
@@ -325,7 +300,7 @@ generate.trap.chronology <- function(
   #----Required Functions
   source("R/FNC.MIS.calc.aerial.chronology.R")
 
-  #Clean things up
+  # Clean things up
   if (exists(x = "out.harvest.chronology")) {
     rm(out.harvest.chronology)
   }
@@ -333,20 +308,20 @@ generate.trap.chronology <- function(
   for (k in 1:length(trap.vec)) {
     in.dat.sub <- trap.dat[trap.dat$CMP_NAME %in% trap.vec[k], ]
 
-    #Generate Agreement List
+    # Generate Agreement List
     agrp_prp.list <- plyr::count(in.dat.sub$AGRP_PRP_ID)
     prop.list <- agrp_prp.list[, 1]
 
-    #Add fields
+    # Add fields
     in.dat.sub$day.diff <- 0
     in.dat.sub$time.since.event <- 0
     in.dat.sub$event.id <- NA
 
     pb <- txtProgressBar(min = 0, max = length(prop.list), style = 3)
 
-    #Run For All Agreements
+    # Run For All Agreements
     for (j in 1:length(prop.list)) {
-      #tmp.dat<-in.dat[in.dat$AGRP_PRP_ID==359251,]
+      # tmp.dat<-in.dat[in.dat$AGRP_PRP_ID==359251,]
 
       tmp.dat <- in.dat.sub[in.dat.sub$AGRP_PRP_ID == prop.list[j], ]
       tmp.dat <- tmp.dat[order(tmp.dat$WT_WORK_DATE), , drop = FALSE]
@@ -354,21 +329,21 @@ generate.trap.chronology <- function(
       tmp.dat <- aerial.chronology(tmp.dat, time.thershold = time.thershold)
 
       if (j == 1) {
-        out.dat = tmp.dat
+        out.dat <- tmp.dat
       }
       if (j > 1) {
-        out.dat = rbind(out.dat, tmp.dat)
+        out.dat <- rbind(out.dat, tmp.dat)
       }
 
-      #status <- (j/length(prop.list))*100
+      # status <- (j/length(prop.list))*100
 
-      #print(paste(round(status,0),"% completed"))
+      # print(paste(round(status,0),"% completed"))
       setTxtProgressBar(pb, j)
-    } #END Loop
+    } # END Loop
 
     #----Post Process Results
 
-    #Generate Take by property
+    # Generate Take by property
     kill.by.prop <- dat.PropKill[dat.PropKill$CMP_NAME %in% trap.vec, ]
     kill.by.prop <- unique(kill.by.prop[, c(
       "ALWS_AGRPROP_ID",
@@ -389,7 +364,7 @@ generate.trap.chronology <- function(
       "WKR_QTY"
     )]
 
-    #Merge trap chronology and take data
+    # Merge trap chronology and take data
     harvest.chronology <- merge(
       out.dat,
       kill.by.prop,
@@ -398,12 +373,12 @@ generate.trap.chronology <- function(
     )
     colnames(harvest.chronology)[ncol(harvest.chronology)] <- "Take"
 
-    #Ensure NAs in Take are 0
+    # Ensure NAs in Take are 0
     tmp <- harvest.chronology$Take
     tmp[is.na(tmp)] <- 0
     harvest.chronology$Take <- tmp
 
-    #Merge each chrnology by trap type
+    # Merge each chrnology by trap type
     if (k == 1) {
       out.harvest.chronology <- harvest.chronology
     }
@@ -413,13 +388,13 @@ generate.trap.chronology <- function(
         harvest.chronology
       )
     }
-  } ##END Loop
+  } ## END Loop
   close(pb)
 
-  #for some reason won't return proper dataset for some reason....
+  # for some reason won't return proper dataset for some reason....
 
   return(out.harvest.chronology)
-} #END Function
+} # END Function
 
 
 #--FNC - Set Start and End Dates
@@ -446,14 +421,14 @@ set.start.and.end.dates <- function(trap.harvest.chronology) {
           trap.harvest.chronology$WT_WORK_DATE == date.lut[i, "end.date"]),
         "event.type"
       ] <- "Event End"
-    } #END
+    } # END
 
     setTxtProgressBar(pb, i)
-  } #END Loop
+  } # END Loop
   close(pb)
 
   return(trap.harvest.chronology)
-} #END Function
+} # END Function
 
 
 #--FNC - Break up long events
@@ -483,10 +458,10 @@ break.up.long.events <- function(
       trap.harvest.chronology$unk.prp.event.id %in% long.events[i],
       "unk.prp.event.id"
     ] <- unk.prp.event.id
-    #trap.harvest.chronology[trap.harvest.chronology$unk.prp.event.id %in% long.events[i],"event.id"] <-event.id
+    # trap.harvest.chronology[trap.harvest.chronology$unk.prp.event.id %in% long.events[i],"event.id"] <-event.id
   }
 
-  #Re-Calculate unk Event Ids
+  # Re-Calculate unk Event Ids
   trap.harvest.chronology <- trap.harvest.chronology[
     order(
       trap.harvest.chronology$AGRP_PRP_ID,
@@ -509,14 +484,14 @@ break.up.long.events <- function(
   }
 
   return(trap.harvest.chronology)
-} #END Function
+} # END Function
 
 
 #--FNC - %Not In%
 
 `%not in%` <- function(x, table) is.na(match(x, table, nomatch = NA_integer_))
 
-#END Function
+# END Function
 
 #--FNC - Generate Mean Property Size
 generate.mean.property.size <- function(
@@ -528,7 +503,7 @@ generate.mean.property.size <- function(
   #--County Adjacency File
   adj.file <- read.csv(adj.file, stringsAsFactors = FALSE)
 
-  #Fix Fips
+  # Fix Fips
   adj.file[nchar(adj.file$FIPS) == 4, "FIPS"] <- paste0(
     "0",
     adj.file[nchar(adj.file$FIPS) == 4, "FIPS"]
@@ -547,10 +522,10 @@ generate.mean.property.size <- function(
 
   #--Generate vectors for processing
 
-  #Find NA values
+  # Find NA values
   tmp <- unique(in.dat[is.na(in.dat[, area.col]) == TRUE, "FIPS"])
 
-  #Find those that are less that certain area
+  # Find those that are less that certain area
   tmp1 <- unique(in.dat[in.dat[, area.col] <= area.thershold, "FIPS"])
 
   fips.vec <- unique(c(tmp, tmp1))
@@ -565,7 +540,7 @@ generate.mean.property.size <- function(
 
     if (length(vec) > 0) {
       mu <- mean(vec)
-    } #END Logical
+    } # END Logical
 
     #--Mean using adjacent counties
     if (length(vec) == 0) {
@@ -578,19 +553,19 @@ generate.mean.property.size <- function(
         filter(FIPS %in% fips.lut, .data[[area.col]] > area.thershold) |>
         pull(all_of(area.col))
 
-      #Use State if no county values
+      # Use State if no county values
       if (length(vec) == 0) {
         st.fips <- substring(fips.vec[i], first = 1, last = 2)
 
         vec <- in.dat[in.dat$ST_GSA_STATE_CD %in% st.fips, "TOTAL.LAND"]
         vec <- vec[is.na(vec) == FALSE]
         vec <- vec[vec > area.thershold]
-      } #END Logical
+      } # END Logical
 
       mu <- mean(vec)
-    } #END Logical
+    } # END Logical
 
-    #Assign Values
+    # Assign Values
     if (is.nan(mu)) {
       vals <- -1
     } else {
@@ -601,10 +576,10 @@ generate.mean.property.size <- function(
       in.dat$FIPS == fips.vec[i] & in.dat[, area.col] <= area.thershold,
       area.col
     ] <- vals
-  } #END Loop
+  } # END Loop
 
   return(in.dat)
-} #END Function
+} # END Function
 
 
 #--FNC - Adjust firearm numbers
@@ -623,7 +598,7 @@ adjust.firearm.data <- function(in.dat, thershold = 5) {
     tmp <- tmp[tmp != 0]
 
     in.dat[in.dat$AGRP_PRP_ID == property.vec[i], "WTCM_QTY"] <- mean(tmp)
-  } #END Loop
+  } # END Loop
 
   tmp <- unique(tmp.dat$AGRP_PRP_ID)
 
@@ -640,7 +615,7 @@ adjust.firearm.data <- function(in.dat, thershold = 5) {
   ] <- 1
 
   return(in.dat)
-} #END Function
+} # END Function
 
 #----Simple Functions
 `%not in%` <- function(x, table) is.na(match(x, table, nomatch = NA_integer_))
@@ -678,7 +653,7 @@ raw_filter <- function(dat) {
   tmp <- dat |>
     filter(
       DA_NAME == "SWINE, FERAL",
-      WT_WORK_DATE >= "2001-01-01",
+      WT_WORK_DATE >= "2000-01-01",
       FATE_FATE == "KILLED"
     )
   cols <- colnames(tmp)
@@ -692,4 +667,10 @@ raw_filter <- function(dat) {
     tmp <- dplyr::rename(tmp, WKR_QTY = TAKE)
   }
   tmp
+}
+
+subset_methods <- function(df, method_vec, method_name) {
+  df |>
+    filter(CMP_NAME %in% method_vec) |>
+    mutate(CMP_NAME = method_name)
 }

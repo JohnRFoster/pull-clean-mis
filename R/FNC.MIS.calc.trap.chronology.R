@@ -24,8 +24,8 @@ trap.chronology <- function(
     #Logical to catch rows that =0
     if (nrow(in_dat) != 0) {
       #Generate Agreement List
-      agrp_prp.list <- plyr::count(in_dat$AGRP_PRP_ID)
-      prop.list <- agrp_prp.list[, 1]
+      agrp_prp_list <- plyr::count(in_dat$AGRP_PRP_ID)
+      prop.list <- agrp_prp_list[, 1]
 
       pb <- txtProgressBar(min = 0, max = length(prop.list), style = 3)
 
@@ -40,7 +40,7 @@ trap.chronology <- function(
           tmp.dat <- calc.days.elapsed(tmp.dat)
 
           #CALC Event Thershold
-          if (use.mlv.thershold == TRUE) {
+          if (use.mlv.thershold) {
             my_mlv <- function(v, m, i, ...) {
               tryCatch(
                 expr = {
@@ -123,7 +123,7 @@ trap.chronology <- function(
       trap.harvest.chronology <- merge(
         out.dat,
         kill_dat,
-        by = c("AGRP_PRP_ID", "WT_WORK_DATE", "CMP_NAME"),
+        by = c("AGRP_PRP_ID", "ALWS_AGRPROP_ID", "WT_WORK_DATE", "CMP_NAME"),
         all.x = TRUE
       )
 

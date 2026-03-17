@@ -4,6 +4,7 @@ rm(list = ls())
 library(reshape2)
 library(tidyr)
 library(plyr)
+library(dplyr)
 library(modeest)
 library(readr)
 library(operators)
@@ -32,77 +33,15 @@ processed_path <- file.path("data/processed", pull_date)
 processed <- "processed_"
 
 # look up table property acres
-lut.property.acres <- read_csv(file.path(
+lut_property_acres <- read_csv(file.path(
   processed_path,
   "processed_lut_property_acres.csv"
 ))
 
-# Read data
-df <- read_csv(raw_data)
-dat_agr_csv <- df |> raw_filter()
-dat_agr_csv2 <- alter.column.names(dat_agr_csv)
-
-# might not need dat_Agr??
-dat_Agr <- dat_agr_csv |>
-  group_by(
-    AGRP_PRP_ID,
-    ALWS_AGRPROP_ID,
-    ALWS_DA_ID,
-    PRP_NAME,
-    ST_NAME,
-    ST_GSA_STATE_CD,
-    CNTY_NAME,
-    CNTY_GSA_CNTY_CD,
-    PRPS_PROP_TYPE
-  ) |>
-  reframe(
-    PRPS_QTY = max(PRPS_QTY)
-  ) |>
-  mutate(unk.id = paste0(AGRP_PRP_ID, ".", ALWS_AGRPROP_ID))
-
-##----END DATA PREP----
-
-#-----------------------------
-#----Generate trap effort ----
-
-#-- Remove properties with rodent control
-
-#Set CMP names associated with rodent control
-cmp_vec <- c(
-  "RAMIK MINI BARS :HI-9 (ANTICOAG)",
-  "TRAPS, SNAP (RAT, MOUSE, ETC.)"
-)
-
-prp_vec <- dat_agr_csv2 |>
-  filter(CMP_NAME %in% cmp_vec) |>
-  pull(AGRP_PRP_ID) |>
-  unique()
-
-#--Restrict to those with trapping
-
-# Restrict to those with trapping
-# Generate trap type list to process
-# Dropping "TRAPS, BODY GRIP", "TRAPS, FOOTHOLD",
-#          "TRAPS, OTHER", "TRAPS, FOOTHOLD (PADDED)", "TRAPS, CULVERT"
-trap_vec <- c("TRAPS, LIVE, FERAL HOGS", "TRAPS, CAGE", "TRAPS, CORRAL")
-
-trap_dat <- dat_agr_csv2 |>
-  filter(CMP_NAME %in% trap_vec, !AGRP_PRP_ID %in% prp_vec)
-
-#Remove those with WTCM_QTY > max WTCM_QTY for Corral Traps
-corral_max <- trap_dat |>
-  filter(CMP_NAME == "TRAPS, CORRAL") |>
-  pull(WTCM_QTY) |>
-  max(na.rm = TRUE)
-
-trap_dat <- trap_dat |>
-  filter(WTCM_QTY < corral_max)
-
-
 #-------------------------------------------------------------------
 #----Generate summary of trap nights and kill by each trapping event
 
-#Read in Harvest Chronology
+# Read in Harvest Chronology
 file_name <- file.path(
   processed_path,
   "dev_feral.swine.effort.take.traps.chronology.limited.ALL.csv"
@@ -116,7 +55,7 @@ trap_harvest_chronology$WT_WORK_DATE <- as.Date(as.character(
   "%Y-%m-%d"
 ))
 
-#Adjust for Daily Trapping Summary
+# Adjust for Daily Trapping Summary
 trap_harvest_chronology <- calc.days.between.records(trap_harvest_chronology)
 nrow(trap_harvest_chronology)
 
@@ -129,32 +68,32 @@ nrow(trap_harvest_chronology)
 trap_harvest_chronology <- add.within.event.id(trap_harvest_chronology)
 nrow(trap_harvest_chronology)
 
-#tmp <- trap_harvest_chronology[trap_harvest_chronology$within.id!=1,]
+# tmp <- trap_harvest_chronology[trap_harvest_chronology$within.id!=1,]
 
-#Calculate days active
+# Calculate days active
 trap_harvest_chronology$days.active <- trap_harvest_chronology$within.event.end.date -
   trap_harvest_chronology$within.event.str.date
 
-#Assume first day active is 1
+# Assume first day active is 1
 trap_harvest_chronology[
   trap_harvest_chronology$days.active == 0,
   "days.active"
 ] <- 1
 
-#Calculate trap nights
+# Calculate trap nights
 trap_harvest_chronology$trap.nights <- as.numeric(
   trap_harvest_chronology$days.active
 ) *
   trap_harvest_chronology$trap.count
 
-#Remake Unique ID
+# Remake Unique ID
 trap_harvest_chronology$event.id <- paste0(
   trap_harvest_chronology$event.id,
   ".",
   trap_harvest_chronology$within.id
 )
 
-#Reorder
+# Reorder
 trap_harvest_chronology <- trap_harvest_chronology[
   order(
     -trap_harvest_chronology$AGRP_PRP_ID,
@@ -166,14 +105,14 @@ trap_harvest_chronology <- trap_harvest_chronology[
   trap_harvest_chronology$trap.count != 0,
 ]
 
-#Remake unique ID
+# Remake unique ID
 trap_harvest_chronology$unk.prp.event.id <- paste0(
   trap_harvest_chronology$AGRP_PRP_ID,
   "-",
   trap_harvest_chronology$event.id
 )
 
-#Reorder things
+# Reorder things
 agg_out_dat <- trap_harvest_chronology[, c(
   "AGRP_PRP_ID",
   "unk.prp.event.id",
@@ -197,12 +136,12 @@ agg_out_dat <- agg_out_dat |>
 
 #----Merge County location data
 
-#Generate final data
-#lut.property.acres <- unique(lut.property.acres)
+# Generate final data
+# lut_property_acres <- unique(lut_property_acres)
 
 final_agg_out_dat <- merge(
   agg_out_dat,
-  lut.property.acres,
+  lut_property_acres,
   by = c("AGRP_PRP_ID", "ALWS_AGRPROP_ID"),
   all.x = TRUE
 )
@@ -231,26 +170,26 @@ final_agg_out_dat <- final_agg_out_dat[
 nrow(final_agg_out_dat)
 head(final_agg_out_dat)
 
-#Remove events with zero trap nights
+# Remove events with zero trap nights
 non_zero_lut <- rownames(final_agg_out_dat[
   final_agg_out_dat$trap.nights != 0,
 ])
 
-#Limit to those with non-zero trap nights
+# Limit to those with non-zero trap nights
 final_agg_out_dat <- final_agg_out_dat[
   rownames(final_agg_out_dat) %in% non_zero_lut,
 ]
 nrow(final_agg_out_dat)
 
-#Limit Event Length
+# Limit Event Length
 final_agg_out_dat <- final_agg_out_dat[final_agg_out_dat$event.length < 90, ]
 nrow(final_agg_out_dat)
 
-#Limit to only those with acreage
+# Limit to only those with acreage
 final_agg_out_dat <- final_agg_out_dat[final_agg_out_dat$TOTAL.LAND > 0, ]
 nrow(final_agg_out_dat)
 
-#Remove NA values
+# Remove NA values
 final_agg_out_dat <- final_agg_out_dat[
   complete.cases(final_agg_out_dat$AGRP_PRP_ID),
 ]
@@ -266,9 +205,9 @@ write.csv(
     "dev_feral.swine.effort.take.trap.ALL.daily.events.csv"
   )
 )
-##----END----##
+## ----END----##
 
-##---- MAKE PLOTS ----
+## ---- MAKE PLOTS ----
 par(mfrow = c(2, 2))
 
 hist(final_agg_out_dat$Take, xlab = "Take", breaks = 20, main = NULL)
@@ -288,7 +227,7 @@ plot(
   ylab = "log Trap Nights"
 )
 abline(a = 0, b = 1, col = "red")
-#plot(log(final_agg_out_dat$TOTAL.LAND),final_agg_out_dat$event.length,xlab="log Property Size",ylab="Event Length")
+# plot(log(final_agg_out_dat$TOTAL.LAND),final_agg_out_dat$event.length,xlab="log Property Size",ylab="Event Length")
 plot(
   log(final_agg_out_dat$trap.nights),
   log(final_agg_out_dat$Take),
@@ -320,7 +259,7 @@ nrow(agg_out_dat)
 
 #----Determine uncertainity
 
-#Determine Trap count at end of trapping
+# Determine Trap count at end of trapping
 date_lut <- calc.event.length(trap_harvest_chronology)
 tmp_merge <- merge(
   date_lut,
@@ -337,7 +276,7 @@ tmp_merge <- tmp_merge[, c(
 )]
 tmp_merge <- unique(tmp_merge)
 
-#If Traps are zeroed out = high; if traps left = moderate; if traps negative = low
+# If Traps are zeroed out = high; if traps left = moderate; if traps negative = low
 certainty_flag <- tmp_merge[, "trap.count.event"]
 certainty_flag[certainty_flag > 0] <- "Moderate"
 certainty_flag[certainty_flag == 0] <- "High"
@@ -353,12 +292,12 @@ agg_out_dat <- merge(
 )
 
 
-#Check number of rows
+# Check number of rows
 nrow(agg_out_dat)
 nrow(date_lut)
 length(certainty_flag)
 
-#Merge data
+# Merge data
 date_lut <- subset(date_lut, select = -c(WT_WORK_DATE))
 
 agg_out_dat <- merge(
@@ -368,7 +307,7 @@ agg_out_dat <- merge(
   all.x = TRUE
 )
 
-#Reorder things
+# Reorder things
 agg_out_dat <- agg_out_dat[, c(
   "AGRP_PRP_ID",
   "event.id",
@@ -384,10 +323,10 @@ agg_out_dat <- agg_out_dat[, c(
 
 #----Merge County location data
 
-#Generate final data
+# Generate final data
 final_agg_out_dat <- merge(
   agg_out_dat,
-  lut.property.acres,
+  lut_property_acres,
   by = "AGRP_PRP_ID",
   all.x = TRUE
 )
@@ -420,30 +359,30 @@ final_agg_out_dat <- final_agg_out_dat[
 nrow(final_agg_out_dat)
 head(final_agg_out_dat)
 
-#Remove events with zero trap nights
+# Remove events with zero trap nights
 non_zero_lut <- rownames(final_agg_out_dat[
   final_agg_out_dat$trap.nights != 0,
 ])
 
-#Limit to those with non-zero trap nights
+# Limit to those with non-zero trap nights
 final_agg_out_dat <- final_agg_out_dat[
   rownames(final_agg_out_dat) %in% non_zero_lut,
 ]
 nrow(final_agg_out_dat)
 head(final_agg_out_dat)
 
-#Limit to high and moderate certainity
+# Limit to high and moderate certainity
 final_agg_out_dat <- final_agg_out_dat[
   final_agg_out_dat$trap.night.certainty != "low",
 ]
 nrow(final_agg_out_dat)
 head(final_agg_out_dat)
 
-#Limit Event Length
+# Limit Event Length
 final_agg_out_dat <- final_agg_out_dat[final_agg_out_dat$event.length < 90, ]
 nrow(final_agg_out_dat)
 
-#Limit to only those with acreage
+# Limit to only those with acreage
 final_agg_out_dat <- final_agg_out_dat[final_agg_out_dat$TOTAL.LAND > 1, ]
 nrow(final_agg_out_dat)
 
@@ -469,4 +408,4 @@ write.csv(
   )
 )
 
-##----END----##
+## ----END----##

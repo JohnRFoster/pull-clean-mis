@@ -6,6 +6,7 @@ library(reshape2)
 library(tidyr)
 library(readr)
 library(plyr)
+library(dplyr)
 library(modeest)
 library(operators)
 library(utils)
@@ -43,15 +44,27 @@ df <- read_csv(raw_data)
 dat_agr_csv <- df |> raw_filter()
 dat_agr_csv2 <- alter.column.names(dat_agr_csv)
 
-##----END DATA PREP----
+effort_file <- "processed_fs_national_effort.csv"
+dat_eff <- read_csv(file.path(
+  processed_path,
+  effort_file
+))
+
+kill_prop_file <- "processed_kill_by_prop.csv"
+kill_by_prop <- read_csv(file.path(
+  processed_path,
+  kill_prop_file
+))
+
+## ----END DATA PREP----
 
 #--Subset Data
 aerial_vec <- c("HELICOPTER", "FIXED WING")
 
-tmp <- dat_agr_csv2 |>
+tmp <- dat_eff |>
   filter(
     CMP_NAME %in% aerial_vec,
-    WORK_TASK_UOM == "HOBBS METER",
+    UOM_NAME == "HOBBS METER",
     USET_NAME != "DISCHARGED"
   )
 
@@ -76,14 +89,13 @@ wide_data <- aggregate(
   FUN = sum
 )
 
-#Ensure data is ordered
+# Ensure data is ordered
 wide_data <- wide_data[
   order(
     wide_data$AGRP_PRP_ID,
     wide_data$ALWS_AGRPROP_ID,
     wide_data$WT_WORK_DATE
-  ),
-  ,
+  ), ,
   drop = FALSE
 ]
 
@@ -97,7 +109,7 @@ in_dat <- wide_data
 
 head(wide_data[order(-wide_data$VEHICLES), ])
 
-##END
+## END
 
 #----Generate chronology
 
@@ -107,12 +119,12 @@ head(wide_data[order(-wide_data$VEHICLES), ])
 #-----------------------------
 #----Generate trap effort ----
 
-#Subset to area of interest
-#trap_dat<-in_dat[in_dat$AGRP_PRP_ID %in% unique.properties,]
+# Subset to area of interest
+# trap_dat<-in_dat[in_dat$AGRP_PRP_ID %in% unique.properties,]
 
 trap_dat <- in_dat
 
-#Generate trap type list to process
+# Generate trap type list to process
 trap_vec <- unique(in_dat$CMP_NAME)
 
 #--Remove implosable values
@@ -130,25 +142,19 @@ plot(
   main = "Vehicles vrs Hours"
 )
 
-#Restrict number of vehicles
-#nrow(trap_dat[trap_dat$VEHICLES>3,])
-#trap_dat <- trap_dat[trap_dat$VEHICLES<=3,]
-#nrow(trap_dat)
+# Restrict number of vehicles
+# nrow(trap_dat[trap_dat$VEHICLES>3,])
+# trap_dat <- trap_dat[trap_dat$VEHICLES<=3,]
+# nrow(trap_dat)
 
-#Restrict hours
-#nrow(trap_dat[trap_dat$HOURS>10,])
-#trap_dat <- trap_dat[trap_dat$HOURS<=10,]
-#nrow(trap_dat)
+# Restrict hours
+# nrow(trap_dat[trap_dat$HOURS>10,])
+# trap_dat <- trap_dat[trap_dat$HOURS<=10,]
+# nrow(trap_dat)
 
-#trap_dat[trap_dat$ALWS_AGRPROP_ID=="366874" & trap_dat$AGRP_PRP_ID=="370276",]
+# trap_dat[trap_dat$ALWS_AGRPROP_ID=="366874" & trap_dat$AGRP_PRP_ID=="370276",]
 
 #----Generate trap chronology for each trap type
-
-kill_by_prop <- read_csv(file.path(
-  processed_path,
-  "processed_kill_by_prop.csv"
-))
-
 harvest_chronology <- generate.trap.chronology(
   trap_dat,
   kill_by_prop,
@@ -170,7 +176,7 @@ agg_out_dat <- agg_out_dat[
 ]
 
 nrow(agg_out_dat)
-#agg_out_dat[agg_out_dat$AGRP_PRP_ID==224386,]
+# agg_out_dat[agg_out_dat$AGRP_PRP_ID==224386,]
 
 #----Make start and end dates for aggregated data
 str_date <- aggregate(
@@ -223,15 +229,14 @@ agg_out_dat <- agg_out_dat[, c(
 )]
 
 agg_out_dat <- agg_out_dat[
-  order(agg_out_dat$AGRP_PRP_ID, agg_out_dat$event.id),
-  ,
+  order(agg_out_dat$AGRP_PRP_ID, agg_out_dat$event.id), ,
   drop = FALSE
 ]
 
 
 #----Merge County location data
 
-#Generate final data
+# Generate final data
 final_agg_out_dat <- merge(
   agg_out_dat,
   lut_property_acres,
@@ -275,7 +280,7 @@ final_agg_out_dat <- final_agg_out_dat[
 ]
 nrow(final_agg_out_dat)
 
-#Remove those with no FIPS Code thus no area values
+# Remove those with no FIPS Code thus no area values
 final_agg_out_dat <- check.all.properties(final_agg_out_dat)
 nrow(final_agg_out_dat)
 
@@ -301,7 +306,7 @@ write.csv(
   )
 )
 
-##----END----##
+## ----END----##
 
 plyr::count(final_agg_out_dat$ST_NAME)
 length(unique(final_agg_out_dat$AGRP_PRP_ID))
@@ -310,7 +315,7 @@ nrow(final_agg_out_dat)
 summary(final_agg_out_dat$Take)
 
 
-##---- MAKE PLOTS ----
+## ---- MAKE PLOTS ----
 par(mfrow = c(2, 2))
 
 hist(final_agg_out_dat$Take, xlab = "Take", breaks = 30, main = NULL)
