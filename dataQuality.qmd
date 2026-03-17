@@ -9,8 +9,6 @@ execute:
   echo: false
 ---
 
-
-
 ```{r}
 #| label: setup
 
@@ -235,7 +233,6 @@ aerial <- get_numbers(aerial.raw, dat.aerial)
 
 ```
 
-
 ```{r}
 #| label: snares
 
@@ -404,52 +401,47 @@ We evaluated MIS data regarding the amount of usable information available to su
 
 ### Incomplete and errant data
 
-Across all removal methods `r percent_events_lost`% of removal events had data errors or incomplete information. This results in `r percent_props_lost`% of properties being removed from the raw MIS data (Table 1). 
+Across all removal methods `r percent_events_lost`% of removal events had data errors or incomplete information. This results in `r percent_props_lost`% of properties being removed from the raw MIS data (Table 1).
 
-* Traps and snares account for `r ts_percent_raw`% of all MIS removal events and used at 52% of all properties.
+-   Traps and snares account for `r ts_percent_raw`% of all MIS removal events and used at 52% of all properties.
 
-* Traps and snares had the largest amount of data loss. Data loss for snares and traps was largely due to inability to determine effort (trap nights) due to data entry errors. This was mostly due to implausible combinations of hours spent snaring, the number of snares set, and/or the number of snares checked, removed, or unset.
+-   Traps and snares had the largest amount of data loss. Data loss for snares and traps was largely due to inability to determine effort (trap nights) due to data entry errors. This was mostly due to implausible combinations of hours spent snaring, the number of snares set, and/or the number of snares checked, removed, or unset.
 
-* Aerial data appears to be of the highest quality with the lowest loss rate.  Aerial data was lost due to data entry issues such as implausible number of aircraft flown, flight duration not recorded with a Hobbs meter, or the area of the property was not recorded or recorded as 1 acre.
+-   Aerial data appears to be of the highest quality with the lowest loss rate. Aerial data was lost due to data entry issues such as implausible number of aircraft flown, flight duration not recorded with a Hobbs meter, or the area of the property was not recorded or recorded as 1 acre.
 
-* Firearms had the largest loss of removal events largely due to duplicate records, hours spent using firearms recorded as 0 or longer than 24, or because their property ID (“AGRP_PRP_ID”) was not recorded. Luckily, the firearm events lost are contained to a select few properties.
+-   Firearms had the largest loss of removal events largely due to duplicate records, hours spent using firearms recorded as 0 or longer than 24, or because their property ID (“AGRP_PRP_ID”) was not recorded. Luckily, the firearm events lost are contained to a select few properties.
 
-* After removing missing and errant data there are `r n_processed` properties left, which includes `r n_fb` Farm Bill properties. These properties represent `r process_left`% of all possible properties and `r fb_left`% of all Farm Bill properties.
+-   After removing missing and errant data there are `r n_processed` properties left, which includes `r n_fb` Farm Bill properties. These properties represent `r process_left`% of all possible properties and `r fb_left`% of all Farm Bill properties.
 
-
-|          |                         |                          |                               |                                |                                 |                                  |
+|  |  |  |  |  |  |  |
 |-----------|-----------|-----------|-----------|-----------|-----------|-----------|
-|          | Raw MIS                 | Raw MIS                  | After Processing              | After Processing               | Percent Lost                    | Percent Lost                     |
-| Method   | Events                  | Properties               | Events                        | Properties                     | Events                          | Properties                       |
-| Traps    | `r traps$n_rows_raw`    | `r traps$n_props_raw`    | `r traps$n_rows_processed`    | `r traps$n_props_processed`    | `r traps$percent_rows_lost`%    | `r traps$percent_props_lost`%    |
+|  | Raw MIS | Raw MIS | After Processing | After Processing | Percent Lost | Percent Lost |
+| Method | Events | Properties | Events | Properties | Events | Properties |
+| Traps | `r traps$n_rows_raw` | `r traps$n_props_raw` | `r traps$n_rows_processed` | `r traps$n_props_processed` | `r traps$percent_rows_lost`% | `r traps$percent_props_lost`% |
 | Firearms | `r firearms$n_rows_raw` | `r firearms$n_props_raw` | `r firearms$n_rows_processed` | `r firearms$n_props_processed` | `r firearms$percent_rows_lost`% | `r firearms$percent_props_lost`% |
-| Aerial   | `r aerial$n_rows_raw`   | `r aerial$n_props_raw`   | `r aerial$n_rows_processed`   | `r aerial$n_props_processed`   | `r aerial$percent_rows_lost`%   | `r aerial$percent_props_lost`%   |
-| Snares   | `r snare$n_rows_raw`    | `r snare$n_props_raw`    | `r snare$n_rows_processed`    | `r snare$n_props_processed`    | `r snare$percent_rows_lost`%    | `r snare$percent_props_lost`%    |
-| Total    | `r raw_events`          | `r raw_props`            | `r processed_events`          | `r processed_props`            | `r percent_events_lost`         | `r percent_props_lost`           |
+| Aerial | `r aerial$n_rows_raw` | `r aerial$n_props_raw` | `r aerial$n_rows_processed` | `r aerial$n_props_processed` | `r aerial$percent_rows_lost`% | `r aerial$percent_props_lost`% |
+| Snares | `r snare$n_rows_raw` | `r snare$n_props_raw` | `r snare$n_rows_processed` | `r snare$n_props_processed` | `r snare$percent_rows_lost`% | `r snare$percent_props_lost`% |
+| Total | `r raw_events` | `r raw_props` | `r processed_events` | `r processed_props` | `r percent_events_lost` | `r percent_props_lost` |
 
 : One Table {#tbl-processedMIS tbl-colwidths="\[20, 12, 15, 12, 15, 12, 15\]"}
 
-
-## Data meeting minimum criteria for density estimation 
+## Data meeting minimum criteria for density estimation
 
 The final set of processing involves selecting properties that meet the minimum criteria for density estimation using a removal model. These criteria include:
 
-1. The time series is broken into 4-week chunks, or primary periods, and a primary period must have at least two removal events within it. I.e. any primary period with one event was discarded. Additionally, a property must have at least two good primary periods in its time series (i.e. primary periods with at least two removal events).
+1.  The time series is broken into 4-week chunks, or primary periods, and a primary period must have at least two removal events within it. I.e. any primary period with one event was discarded. Additionally, a property must have at least two good primary periods in its time series (i.e. primary periods with at least two removal events).
 
-2. We condition on first positive capture. I.e. within a property, we drop all primary periods at the beginning of a property’s time series that have 0 total pigs removed. This step was added to aid fitting the Bayesian model. Early attempts to fit the removal model without this step proved challenging, and through our simulation study and subsequent model fits we can get reliable density estimates. 
+2.  We condition on first positive capture. I.e. within a property, we drop all primary periods at the beginning of a property’s time series that have 0 total pigs removed. This step was added to aid fitting the Bayesian model. Early attempts to fit the removal model without this step proved challenging, and through our simulation study and subsequent model fits we can get reliable density estimates.
 
 After this final set of processing, we are left with:
 
-* `r n_final_props` properties (`r per_left_final`% of possible properties in MIS)
-    
-* `r n_final_props_fb` Farm Bill properties (`r per_left_final_fb`% of possible Farm Bill properties in MIS)
+-   `r n_final_props` properties (`r per_left_final`% of possible properties in MIS)
 
-
+-   `r n_final_props_fb` Farm Bill properties (`r per_left_final_fb`% of possible Farm Bill properties in MIS)
 
 ## Conclusion
 
 In summary, the main cause of loss of information is data reporting issues related to effort and a property not having its area accurately recorded. For the effort data, the main issue is when traps and snares are marked as unchecked over long periods of time. This is most likely because they were checked, had 0 pigs in them, and then left open. This is problematic because we need to know when traps/snares were checked, even if 0 pigs were removed. Additionally, for the firearm data, a major issue is that the property ID was not recorded for hunting events.
-
 
 ## MIS Data Overview
 
