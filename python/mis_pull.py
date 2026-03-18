@@ -17,19 +17,22 @@ connection = oracledb.connect(
 
 cursor = connection.cursor()
 
+cursor
+
 sys_path = os.getenv("sysPath")
 if sys_path is not None:
     sys.path.append(sys_path)
 
 import queries
 
-myDate = "2014-01-01"  # we do not need data prior to 2014
 always_pull = True  # override to always pull data
 
 # create output directory for today's date
 datetoday = datetime.today().strftime("%Y-%m-%d")
-raw_dir = "data\\raw"
-file_path = os.path.join(raw_dir, datetoday)
+data_dir = os.getenv("dataPath")
+raw = "raw"
+file_path = os.path.join(data_dir, datetoday, raw)
+print(f"Writing MIS data to: {file_path}")
 if not os.path.exists(file_path):
     os.makedirs(file_path)
 
@@ -56,7 +59,7 @@ if os.path.exists(csv_name) and not always_pull:
 else:
     print("Pulling effort data...")
 
-    df = queries.effort(cursor, myDate)
+    df = queries.effort(cursor)
 
     print("Effort data pulled successfully.")
 
@@ -71,7 +74,7 @@ if os.path.exists(csv_name) and not always_pull:
 else:
     print("Pulling property data...")
 
-    df = queries.property(cursor, myDate)
+    df = queries.property(cursor)
 
     print("property data pulled successfully.")
 

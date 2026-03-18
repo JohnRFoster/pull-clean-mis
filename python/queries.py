@@ -108,7 +108,7 @@ WHERE
     return df
 
 
-def effort(cursor, startDate):
+def effort(cursor):
     cursor.execute(
         """
           SELECT 
@@ -146,7 +146,8 @@ def effort(cursor, startDate):
                M2_USE_TYPE.ID = M2_WORK_TASK_COMPONENT.WTC_USET_ID
           INNER JOIN M2_PROPERTY ON 
                M2_PROPERTY.ID = M2_AGREEMENT_PROPERTY.AGRP_PRP_ID
-          WHERE M2_DAMAGE_AGENT.ID = 8"""
+          WHERE M2_DAMAGE_AGENT.ID = 8 AND
+    M2_WORK_TASK.WT_WORK_DATE >= to_date(' 2001-01-01 ','yyyy-mm-dd') """
     )
 
     col_names = [row[0] for row in cursor.description]
@@ -155,7 +156,7 @@ def effort(cursor, startDate):
     df.columns = col_names
     return df
 
-def property(cursor, startDate):
+def property(cursor):
     cursor.execute(
         """
           SELECT 

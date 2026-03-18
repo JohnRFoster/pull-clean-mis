@@ -56,3 +56,15 @@ rsconnect/
 
 # data dir
 data/
+
+# plot dir
+plots/
+
+# old code for reference
+ryan_code/
+
+# html
+*.html
+
+comparePulls.qmd
+scratch.R
