@@ -1,3 +1,6 @@
+print("Script to pull MIS data")
+
+print("Load libraries...")
 import oracledb
 import pandas as pd
 import os
@@ -5,6 +8,9 @@ import csv
 import sys
 from datetime import datetime
 from dotenv import load_dotenv
+
+print("Libraries loaded.")
+
 
 start_time = datetime.now()
 
