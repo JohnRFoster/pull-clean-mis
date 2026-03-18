@@ -6,18 +6,22 @@ import sys
 from datetime import datetime
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+start_time = datetime.now()
+
+# --- 1. Check if environment variables are being loaded ---
+print("Attempting to load environment variables...")
 load_dotenv()
+print("Environment variables loaded (or attempted to load).")
 
-connection = oracledb.connect(
-    user=os.getenv("misUser"),
-    password=os.getenv("misPassword"),
-    dsn=os.getenv("misdDSN"),
-)
+# --- 2. Check if environment variables are accessible ---
+# IMPORTANT: Be cautious about printing sensitive information like passwords in production.
+# For debugging, printing the *presence* (not value) or parts of DSN can be useful.
+mis_user = os.getenv("misUser")
+mis_password = os.getenv("misPassword")  # Don't print this value!
+mis_dsn = os.getenv("misdDSN")
 
-cursor = connection.cursor()
-
-cursor
+print(f"misUser loaded: {'Yes' if mis_user else 'No'}")
+print(f"misdDSN loaded: {'Yes' if mis_dsn else 'No'}")
 
 sys_path = os.getenv("sysPath")
 if sys_path is not None:
@@ -30,56 +34,101 @@ always_pull = True  # override to always pull data
 # create output directory for today's date
 datetoday = datetime.today().strftime("%Y-%m-%d")
 data_dir = os.getenv("dataPath")
+if data_dir is None:
+    raise ValueError("dataPath environment variable is not set")
+
 raw = "raw"
 file_path = os.path.join(data_dir, datetoday, raw)
 print(f"Writing MIS data to: {file_path}")
 if not os.path.exists(file_path):
     os.makedirs(file_path)
 
-# single pull
-csv_name = os.path.join(file_path, "fs_national_all.csv")
 
-if os.path.exists(csv_name) and not always_pull:
-    print(f"{csv_name} already exists, skipping pull.")
-else:
-    print("Pulling all data...")
+# --- 3. Check database connection attempt and success ---
+try:
+    print("Attempting to connect to Oracle database...")
+    connection = oracledb.connect(
+        user=mis_user,
+        password=mis_password,
+        dsn=mis_dsn,
+    )
+    print("Successfully connected to Oracle database!")
 
-    df = queries.single(cursor)
+    # --- 4. Check cursor creation ---
+    print("Attempting to create database cursor...")
+    cursor = connection.cursor()
+    print("Successfully created database cursor.")
 
-    print("single data pulled successfully.")
+    # single pull
+    csv_name = os.path.join(file_path, "fs_national_all.csv")
 
-    # write as csv
-    df.to_csv(csv_name, index=False)
+    if os.path.exists(csv_name) and not always_pull:
+        print(f"{csv_name} already exists, skipping pull.")
+    else:
+        print("Pulling all data...")
 
-# effort pull
-csv_name = os.path.join(file_path, "fs_national_effort.csv")
+        df = queries.single(cursor)
 
-if os.path.exists(csv_name) and not always_pull:
-    print(f"{csv_name} already exists, skipping effort pull.")
-else:
-    print("Pulling effort data...")
+        print("single data pulled successfully.")
 
-    df = queries.effort(cursor)
+        # write as csv
+        df.to_csv(csv_name, index=False)
 
-    print("Effort data pulled successfully.")
+    # effort pull
+    csv_name = os.path.join(file_path, "fs_national_effort.csv")
 
-    # write as csv
-    df.to_csv(csv_name, index=False)
+    if os.path.exists(csv_name) and not always_pull:
+        print(f"{csv_name} already exists, skipping effort pull.")
+    else:
+        print("Pulling effort data...")
 
-# property pull
-csv_name = os.path.join(file_path, "fs_national_property.csv")
+        df = queries.effort(cursor)
 
-if os.path.exists(csv_name) and not always_pull:
-    print(f"{csv_name} already exists, skipping property pull.")
-else:
-    print("Pulling property data...")
+        print("Effort data pulled successfully.")
 
-    df = queries.property(cursor)
+        # write as csv
+        df.to_csv(csv_name, index=False)
 
-    print("property data pulled successfully.")
+    # property pull
+    csv_name = os.path.join(file_path, "fs_national_property.csv")
 
-    # write as csv
-    df.to_csv(csv_name, index=False)
+    if os.path.exists(csv_name) and not always_pull:
+        print(f"{csv_name} already exists, skipping property pull.")
+    else:
+        print("Pulling property data...")
 
+        df = queries.property(cursor)
 
-connection.close()
+        print("property data pulled successfully.")
+
+        # write as csv
+        df.to_csv(csv_name, index=False)
+
+except oracledb.Error as e:
+    # --- 5. Handle connection errors ---
+    (error,) = e.args
+    print(f"Database connection error: {error.code} - {error.message}")
+    sys.exit(1)  # Exit if connection fails
+
+except Exception as e:
+    # --- 6. Catch any other unexpected errors ---
+    print(f"An unexpected error occurred: {e}")
+    sys.exit(1)  # Exit on other errors
+
+finally:
+    # --- 7. Ensure resources are closed ---
+    if "cursor" in locals() and cursor:
+        print("Closing cursor...")
+        cursor.close()
+        print("Cursor closed.")
+    if "connection" in locals() and connection:
+        print("Closing connection...")
+        connection.close()
+        print("Connection closed.")
+
+end_time = datetime.now()
+elapsed_time = end_time - start_time
+total_seconds = elapsed_time.total_seconds()
+total_minutes = round(total_seconds / 60, 2)
+print(f"Total minutes elapsed: {total_minutes} minutes")
+print("Script finished.")
