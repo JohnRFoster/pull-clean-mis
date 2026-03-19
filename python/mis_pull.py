@@ -20,7 +20,6 @@ load_dotenv()
 print("Environment variables loaded (or attempted to load).")
 
 # --- 2. Check if environment variables are accessible ---
-# IMPORTANT: Be cautious about printing sensitive information like passwords in production.
 # For debugging, printing the *presence* (not value) or parts of DSN can be useful.
 mis_user = os.getenv("misUser")
 mis_password = os.getenv("misPassword")  # Don't print this value!
@@ -132,9 +131,9 @@ finally:
         connection.close()
         print("Connection closed.")
 
-end_time = datetime.now()
-elapsed_time = end_time - start_time
-total_seconds = elapsed_time.total_seconds()
-total_minutes = round(total_seconds / 60, 2)
-print(f"Total minutes elapsed: {total_minutes} minutes")
-print("Script finished.")
+    end_time = datetime.now()
+    elapsed_time = end_time - start_time
+    total_seconds = elapsed_time.total_seconds()
+    total_minutes = round(total_seconds / 60, 2)
+    print(f"Total minutes elapsed: {total_minutes} minutes")
+    print("Script finished.")
