@@ -242,90 +242,63 @@ if not os.path.exists(file_path):
 
 
 # --- 3. Check database connection attempt and success ---
-try:
-    print("Attempting to connect to Oracle database...")
-    connection = oracledb.connect(
-        user=mis_user,
-        password=mis_password,
-        dsn=mis_dsn,
-    )
-    print("Successfully connected to Oracle database!")
+print("Attempting to connect to Oracle database...")
+connection = oracledb.connect(
+    user=mis_user,
+    password=mis_password,
+    dsn=mis_dsn,
+)
+print("Successfully connected to Oracle database!")
 
-    # --- 4. Check cursor creation ---
-    print("Attempting to create database cursor...")
-    cursor = connection.cursor()
-    print("Successfully created database cursor.")
+# --- 4. Check cursor creation ---
+print("Attempting to create database cursor...")
+cursor = connection.cursor()
+print("Successfully created database cursor.")
 
-    # single pull
-    csv_name = os.path.join(file_path, "fs_national_all.csv")
+# single pull
+csv_name = os.path.join(file_path, "fs_national_all.csv")
+if os.path.exists(csv_name) and not always_pull:
+    print(f"{csv_name} already exists, skipping pull.")
+else:
+    print("Pulling all data...")
+    df = single(cursor)
+    print("single data pulled successfully.")
+    # write as csv
+    df.to_csv(csv_name, index=False)
 
-    if os.path.exists(csv_name) and not always_pull:
-        print(f"{csv_name} already exists, skipping pull.")
-    else:
-        print("Pulling all data...")
+# effort pull
+csv_name = os.path.join(file_path, "fs_national_effort.csv")
+if os.path.exists(csv_name) and not always_pull:
+    print(f"{csv_name} already exists, skipping effort pull.")
+else:
+    print("Pulling effort data...")
+    df = effort(cursor)
+    print("Effort data pulled successfully.")
+    # write as csv
+    df.to_csv(csv_name, index=False)
 
-        df = single(cursor)
+# property pull
+csv_name = os.path.join(file_path, "fs_national_property.csv")
+if os.path.exists(csv_name) and not always_pull:
+    print(f"{csv_name} already exists, skipping property pull.")
+else:
+    print("Pulling property data...")
+    df = property(cursor)
+    print("property data pulled successfully.")
+    # write as csv
+    df.to_csv(csv_name, index=False)
 
-        print("single data pulled successfully.")
+# --- 5. Ensure resources are closed ---
+print("Closing cursor...")
+cursor.close()
+print("Cursor closed.")
+print("Closing connection...")
+connection.close()
+print("Connection closed.")
 
-        # write as csv
-        df.to_csv(csv_name, index=False)
-
-    # effort pull
-    csv_name = os.path.join(file_path, "fs_national_effort.csv")
-
-    if os.path.exists(csv_name) and not always_pull:
-        print(f"{csv_name} already exists, skipping effort pull.")
-    else:
-        print("Pulling effort data...")
-
-        df = effort(cursor)
-
-        print("Effort data pulled successfully.")
-
-        # write as csv
-        df.to_csv(csv_name, index=False)
-
-    # property pull
-    csv_name = os.path.join(file_path, "fs_national_property.csv")
-
-    if os.path.exists(csv_name) and not always_pull:
-        print(f"{csv_name} already exists, skipping property pull.")
-    else:
-        print("Pulling property data...")
-
-        df = property(cursor)
-
-        print("property data pulled successfully.")
-
-        # write as csv
-        df.to_csv(csv_name, index=False)
-
-except oracledb.Error as e:
-    # --- 5. Handle connection errors ---
-    (error,) = e.args
-    print(f"Database connection error: {error.code} - {error.message}")
-    sys.exit(1)  # Exit if connection fails
-
-except Exception as e:
-    # --- 6. Catch any other unexpected errors ---
-    print(f"An unexpected error occurred: {e}")
-    sys.exit(1)  # Exit on other errors
-
-finally:
-    # --- 7. Ensure resources are closed ---
-    if "cursor" in locals() and cursor:
-        print("Closing cursor...")
-        cursor.close()
-        print("Cursor closed.")
-    if "connection" in locals() and connection:
-        print("Closing connection...")
-        connection.close()
-        print("Connection closed.")
-
-    end_time = datetime.now()
-    elapsed_time = end_time - start_time
-    total_seconds = elapsed_time.total_seconds()
-    total_minutes = round(total_seconds / 60, 2)
-    print(f"Total minutes elapsed: {total_minutes} minutes")
-    print("Script finished.")
+end_time = datetime.now()
+elapsed_time = end_time - start_time
+total_seconds = elapsed_time.total_seconds()
+total_minutes = round(total_seconds / 60, 2)
+print(f"Total minutes elapsed: {total_minutes} minutes")
+print("Script finished.")
