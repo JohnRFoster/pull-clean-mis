@@ -27,11 +27,6 @@ message("Firearm Chronology")
 source("R/3.1.Generate.Firearms.Chronolgy.R")
 message("Firearm Chronology done")
 
-message("\nFirearms Daily Events")
-source("R/3.2.Generate.Firearms.Daily.Chronology.R")
-message("Firearm Daily Events done")
-
-
 message("\n\n=============      Aerial     =============")
 message("Aerial Chronology")
 source("R/4.1.Generate.Aerial.Chronolgy.R")
