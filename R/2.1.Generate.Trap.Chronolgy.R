@@ -56,7 +56,7 @@ dat_Agr <- dat_agr_csv2 |>
   group_by(
     AGRP_PRP_ID,
     ALWS_AGRPROP_ID,
-    ALWS_DA_ID,
+    # ALWS_DA_ID,
     PRP_NAME,
     ST_NAME,
     ST_GSA_STATE_CD,
