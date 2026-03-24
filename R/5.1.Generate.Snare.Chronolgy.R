@@ -28,19 +28,15 @@ source("R/FNC.Misc.Utilities.R")
 source("R/FNC.MIS.assign.orphen.events.R")
 source("R/FNC.MIS.merge.trap.events.R")
 
-#----Prep Data ----
-raw_dir <- "data/raw"
+#----get latest data pull----
+readRenviron(".env")
+data_path <- Sys.getenv("dataPath")
 
-pull_dates <- list.files(raw_dir)
-pull_dates_num <- as.numeric(gsub("-", "", pull_dates))
-pull_date <- pull_dates[which.max(pull_dates_num)]
+paths <- make_paths(data_path)
+pull_date <- paths$pull_date
+read_path <- paths$read_path
+processed_path <- paths$processed_path
 
-raw_data_dir <- "data/raw"
-raw_data_file <- "fs_national_all.csv"
-raw_data <- file.path(raw_data_dir, pull_date, raw_data_file)
-
-#---- processed path ----
-processed_path <- file.path("data/processed", pull_date)
 processed <- "processed_"
 
 # look up table property acres
@@ -388,8 +384,7 @@ if (nrow(poor_dat) > 0) {
   trap_harvest_chronology <- trap_harvest_chronology[
     is.na(trap_harvest_chronology$Drop.Flag),
   ]
-  trap_harvest_chronology <- trap_harvest_chronology[
-    ,
+  trap_harvest_chronology <- trap_harvest_chronology[,
     -ncol(trap_harvest_chronology)
   ]
 }

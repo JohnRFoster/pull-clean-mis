@@ -674,3 +674,17 @@ subset_methods <- function(df, method_vec, method_name) {
     filter(CMP_NAME %in% method_vec) |>
     mutate(CMP_NAME = method_name)
 }
+
+make_paths <- function(data_path) {
+  pull_dates <- list.files(data_path)
+  pull_dates_num <- as.numeric(gsub("-", "", pull_dates))
+  pull_date <- pull_dates[which.max(pull_dates_num)]
+  pull_dir <- file.path(data_path, pull_date)
+  read_path <- file.path(pull_dir, "raw")
+  processed_path <- file.path(pull_dir, "processed")
+  list(
+    pull_date = pull_date,
+    read_path = read_path,
+    processed_path = processed_path
+  )
+}

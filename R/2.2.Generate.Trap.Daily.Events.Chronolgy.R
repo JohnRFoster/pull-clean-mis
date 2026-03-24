@@ -16,20 +16,14 @@ source("R/FNC.MIS.calc.days.elapsed.R")
 source("R/FNC.MIS.calc.trap.chronology.R")
 source("R/FNC.Misc.Utilities.R")
 
-#----get correct data pull----
-raw_dir <- "data/raw"
+#----get latest data pull----
+readRenviron(".env")
+data_path <- Sys.getenv("dataPath")
 
-pull_dates <- list.files(raw_dir)
-pull_dates_num <- as.numeric(gsub("-", "", pull_dates))
-pull_date <- pull_dates[which.max(pull_dates_num)]
-
-raw_data_dir <- "data/raw"
-raw_data_file <- "fs_national_all.csv"
-raw_data <- file.path(raw_data_dir, pull_date, raw_data_file)
-
-
-#---- processed path ----
-processed_path <- file.path("data/processed", pull_date)
+paths <- make_paths(data_path)
+pull_date <- paths$pull_date
+read_path <- paths$read_path
+processed_path <- paths$processed_path
 processed <- "processed_"
 
 # look up table property acres

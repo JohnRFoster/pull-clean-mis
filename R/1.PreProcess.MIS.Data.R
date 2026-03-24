@@ -20,22 +20,23 @@ library(operators)
 library(utils)
 library(anytime)
 
+source("R/FNC.Misc.Utilities.R")
+
 #----get latest data pull----
-raw_dir <- "data/raw"
+readRenviron(".env")
+data_path <- Sys.getenv("dataPath")
 
-pull_dates <- list.files(raw_dir)
-pull_dates_num <- as.numeric(gsub("-", "", pull_dates))
-pull_date <- pull_dates[which.max(pull_dates_num)]
+paths <- make_paths(data_path)
+pull_date <- paths$pull_date
+read_path <- paths$read_path
+processed_path <- paths$processed_path
 
-#---- read path ----
-read_path <- file.path("data/raw", pull_date)
+message("Pull Date: ", pull_date)
 
-#---- write path ----
-write_path <- file.path("data/processed", pull_date)
 processed <- "processed_"
 
-if (!dir.exists(write_path)) {
-  dir.create(write_path, recursive = TRUE)
+if (!dir.exists(processed_path)) {
+  dir.create(processed_path, recursive = TRUE)
 }
 
 #----Required Functions
@@ -43,23 +44,7 @@ source("R/FNC.MIS.calc.aerial.chronology.R")
 source("R/FNC.Misc.Utilities.R")
 source("R/FNC.MIS.Pre.Process.R")
 
-#----get correct data pull----
-raw_dir <- "data/raw"
-pull_date <- get_latest_pull_date(raw_dir)
-
-#---- read path ----
-read_path <- file.path(raw_dir, pull_date)
-
-#---- write path ----
-write_path <- file.path("data/processed", pull_date)
-processed <- "processed_"
-
-if (!dir.exists(write_path)) {
-  dir.create(write_path, recursive = TRUE)
-}
-
 #----Prep Data ----
-
 csv_name <- "fs_national_all.csv"
 file_name <- file.path(read_path, csv_name)
 df <- read_csv(file_name)
@@ -90,7 +75,7 @@ kill_by_prop <- dat |>
   distinct()
 
 out_name <- paste0(processed, "kill_by_prop.csv")
-write_csv(kill_by_prop, file.path(write_path, out_name))
+write_csv(kill_by_prop, file.path(processed_path, out_name))
 
 #--Effort
 file_name <- paste0("fs_national_effort.csv")
@@ -103,7 +88,7 @@ dat_eff <- alter.column.names(dat_eff)
 # Convert Dates to R Dates
 dat_eff$WT_WORK_DATE <- as.Date(dat_eff$WT_WORK_DATE, "%d-%b-%y")
 out_name <- paste0(processed, file_name)
-write_csv(dat_eff, file.path(write_path, out_name))
+write_csv(dat_eff, file.path(processed_path, out_name))
 
 #--Make property tables
 file_name <- paste0("fs_national_property.csv")
@@ -118,7 +103,7 @@ dat_prop <- left_join(
 )
 
 out_name <- paste0(processed, file_name)
-write_csv(dat_prop, file.path(write_path, out_name))
+write_csv(dat_prop, file.path(processed_path, out_name))
 
 # look up table
 lut <- make.property.lut(dat_prop)
@@ -126,6 +111,6 @@ lut_property_acres <- lut |>
   filter(TOTAL.LAND > 0)
 
 out_name <- paste0(processed, "lut_property_acres.csv")
-write_csv(lut_property_acres, file.path(write_path, out_name))
+write_csv(lut_property_acres, file.path(processed_path, out_name))
 
 ## ----END DATA PREP----

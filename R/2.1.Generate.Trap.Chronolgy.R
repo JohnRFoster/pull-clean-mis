@@ -27,16 +27,16 @@ source("R/FNC.MIS.calc.trap.chronology.R")
 source("R/FNC.Misc.Utilities.R")
 source("R/FNC.MIS.assign.orphen.events.R")
 
-#----get correct data pull----
-raw_dir <- "data/raw"
-pull_date <- get_latest_pull_date(raw_dir)
+#----get latest data pull----
+readRenviron(".env")
+data_path <- Sys.getenv("dataPath")
 
-#---- read path ----
-read_path <- file.path(raw_dir, pull_date)
+paths <- make_paths(data_path)
+pull_date <- paths$pull_date
+read_path <- paths$read_path
+processed_path <- paths$processed_path
 
-#---- write path ----
-processed_dir <- "data/processed"
-processed_path <- file.path(processed_dir, pull_date)
+message("Pull Date: ", pull_date)
 processed <- "processed_"
 
 # look up table property acres
