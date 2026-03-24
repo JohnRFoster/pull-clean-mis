@@ -18,7 +18,6 @@ library(dplyr)
 library(modeest)
 library(operators)
 library(utils)
-library(anytime)
 
 source("R/FNC.Misc.Utilities.R")
 
