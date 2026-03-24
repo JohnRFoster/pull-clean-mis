@@ -93,6 +93,7 @@ def single(cursor):
             INNER JOIN M2_DAMAGE_AGENT
                 ON M2_DAMAGE_AGENT.ID = M2_WORK_RESULT.WKR_DA_ID
             WHERE
+                M2_DAMAGE_AGENT.ID = 8 AND
                 M2_FATE.FATE_FATE = 'KILLED' AND
                 M2_WORK_TASK.WT_WORK_DATE >= to_date(' 2001-01-01 ','yyyy-mm-dd')      
     """
