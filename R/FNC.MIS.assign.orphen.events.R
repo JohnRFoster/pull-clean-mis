@@ -13,7 +13,9 @@ assign.orphen.events <- function(master.dat, max.time) {
   process.dat <- master.dat[master.dat$AGRP_PRP_ID %in% property.vec, ]
   not.process.dat <- master.dat[master.dat$AGRP_PRP_ID %not in% property.vec, ]
 
-  pb <- txtProgressBar(min = 0, max = length(property.vec), style = 3)
+  readRenviron(".env")
+  pb_style <- as.numeric(Sys.getenv("pbStyle"))
+  pb <- txtProgressBar(min = 0, max = length(property.vec), style = pb_style)
 
   for (j in 1:length(property.vec)) {
     in.dat <- process.dat[process.dat$AGRP_PRP_ID == property.vec[j], ]

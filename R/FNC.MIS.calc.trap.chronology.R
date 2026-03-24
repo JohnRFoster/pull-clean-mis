@@ -27,7 +27,9 @@ trap.chronology <- function(
       agrp_prp_list <- plyr::count(in_dat$AGRP_PRP_ID)
       prop.list <- agrp_prp_list[, 1]
 
-      pb <- txtProgressBar(min = 0, max = length(prop.list), style = 3)
+      readRenviron(".env")
+      pb_style <- as.numeric(Sys.getenv("pbStyle"))
+      pb <- txtProgressBar(min = 0, max = length(prop.list), style = pb_style)
 
       #--Run For Each Agreement
       for (i in 1:length(prop.list)) {

@@ -96,7 +96,9 @@ alter.column.names <- function(dat) {
 calc.days.between.records <- function(in.dat) {
   property.vec <- unique(in.dat$AGRP_PRP_ID)
 
-  pb <- txtProgressBar(min = 0, max = length(property.vec), style = 3)
+  readRenviron(".env")
+  pb_style <- as.numeric(Sys.getenv("pbStyle"))
+  pb <- txtProgressBar(min = 0, max = length(property.vec), style = pb_style)
 
   for (k in 1:length(property.vec)) {
     tmp <- in.dat[in.dat$AGRP_PRP_ID == property.vec[k], ]
@@ -129,7 +131,13 @@ calc.start.stop.by.record <- function(in.dat, adjustment = 0) {
 
   in.dat$within.event.str.date <- NA
   in.dat$within.event.end.date <- NA
-  pb <- txtProgressBar(min = 0, max = length(property.event.vec), style = 3)
+  readRenviron(".env")
+  pb_style <- as.numeric(Sys.getenv("pbStyle"))
+  pb <- txtProgressBar(
+    min = 0,
+    max = length(property.event.vec),
+    style = pb_style
+  )
 
   for (k in 1:length(property.event.vec)) {
     tmp <- in.dat[in.dat$unk.prp.event.id == property.event.vec[k], ]
@@ -317,7 +325,9 @@ generate.trap.chronology <- function(
     in.dat.sub$time.since.event <- 0
     in.dat.sub$event.id <- NA
 
-    pb <- txtProgressBar(min = 0, max = length(prop.list), style = 3)
+    readRenviron(".env")
+    pb_style <- as.numeric(Sys.getenv("pbStyle"))
+    pb <- txtProgressBar(min = 0, max = length(prop.list), style = pb_style)
 
     # Run For All Agreements
     for (j in 1:length(prop.list)) {
@@ -404,7 +414,9 @@ set.start.and.end.dates <- function(trap.harvest.chronology) {
 
   trap.harvest.chronology$event.type <- "In Process"
 
-  pb <- txtProgressBar(min = 0, max = nrow(date.lut), style = 3)
+  readRenviron(".env")
+  pb_style <- as.numeric(Sys.getenv("pbStyle"))
+  pb <- txtProgressBar(min = 0, max = nrow(date.lut), style = pb_style)
 
   for (i in 1:nrow(date.lut)) {
     if (date.lut[i, "end.date"] != date.lut[i, "start.date"]) {
