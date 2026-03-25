@@ -33,6 +33,8 @@ lut_property_acres <- read_csv(file.path(
 ))
 
 # Read data
+raw_data_file <- "fs_national_all.csv"
+raw_data <- file.path(read_path, raw_data_file)
 df <- read_csv(raw_data)
 dat_agr_csv <- df |> raw_filter()
 dat_agr_csv2 <- alter.column.names(dat_agr_csv)
