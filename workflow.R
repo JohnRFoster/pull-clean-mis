@@ -144,4 +144,14 @@ message("Snare Daily Events done")
 # combine ----
 message("\n\n=============     Combine     =============")
 source("R/6.Combine.All.Daily.Event.Data.into.Single.File.R")
+
+end_time <- Sys.time()
+total_time <- end_time - start_time
+message(
+	"\nTotal execution time: ",
+	round(total_time, 2),
+	" ",
+	units(total_time)
+)
+
 message("\n\n*** DONE ***")
