@@ -7,8 +7,6 @@
 # John Foster
 #----------------------------------
 
-start_time <- Sys.time()
-
 #----Load Libraries----
 library(reshape2)
 library(readr)
@@ -27,6 +25,8 @@ data_path <- Sys.getenv("dataPath")
 paths <- make_paths(data_path)
 pull_date <- paths$pull_date
 processed_path <- paths$processed_path
+
+start_time <- Sys.time()
 
 # preprocess ----
 message("\n\n=============    Preprocess   =============")
