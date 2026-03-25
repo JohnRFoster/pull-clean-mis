@@ -30,7 +30,10 @@ processed_path <- paths$processed_path
 
 # preprocess ----
 message("\n\n=============    Preprocess   =============")
-check_file <- file.exists(file.path(processed_path, "lut_property_acres.csv"))
+check_file <- file.exists(file.path(
+	processed_path,
+	"processed_lut_property_acres.csv"
+))
 if (check_file) {
 	message("Preprocessed data already exists. Skipping preprocessing step.")
 } else {
