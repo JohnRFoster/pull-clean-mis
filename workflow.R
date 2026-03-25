@@ -140,7 +140,7 @@ if (check_file) {
 	)
 } else {
 	message("Running snare daily events step...")
-	source("R/5.2.Generate.Snare.Daily.Chronology.R")
+	source("R/5.2.Generate.Snare.Daily.Events.Chronology.R")
 }
 message("Snare Daily Events done")
 
