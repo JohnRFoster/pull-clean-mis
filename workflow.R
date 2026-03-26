@@ -17,6 +17,8 @@ library(modeest)
 library(operators)
 library(utils)
 
+override <- FALSE
+
 source("R/FNC.Misc.Utilities.R")
 
 readRenviron(".env")
@@ -34,7 +36,7 @@ check_file <- file.exists(file.path(
 	processed_path,
 	"processed_lut_property_acres.csv"
 ))
-if (check_file) {
+if (check_file && !override) {
 	message("Preprocessed data already exists. Skipping preprocessing step.")
 } else {
 	message("Running preprocessing step...")
@@ -50,7 +52,7 @@ check_file <- file.exists(file.path(
 	processed_path,
 	"dev_feral.swine.effort.take.traps.chronology.limited.ALL.csv"
 ))
-if (check_file) {
+if (check_file && !override) {
 	message("Trap chronology already exists. Skipping trap chronology step.")
 } else {
 	message("Running trap chronology step...")
@@ -62,7 +64,7 @@ check_file <- file.exists(file.path(
 	processed_path,
 	"dev_feral.swine.effort.take.trap.ALL.daily.events.csv"
 ))
-if (check_file) {
+if (check_file && !override) {
 	message(
 		"Trap daily events already exists. Skipping trap daily events step."
 	)
@@ -78,7 +80,7 @@ check_file <- file.exists(file.path(
 	processed_path,
 	"dev_feral.swine.effort.take.firearms.ALL.daily.csv"
 ))
-if (check_file) {
+if (check_file && !override) {
 	message(
 		"Firearm chronology already exists. Skipping firearm chronology step."
 	)
@@ -94,7 +96,7 @@ check_file <- file.exists(file.path(
 	processed_path,
 	"dev_feral.swine.effort.take.aerial.chronology.ALL.csv"
 ))
-if (check_file) {
+if (check_file && !override) {
 	message("Aerial chronology already exists. Skipping aerial chronology step.")
 } else {
 	message("Running aerial chronology step...")
@@ -106,7 +108,7 @@ check_file <- file.exists(file.path(
 	processed_path,
 	"dev_feral.swine.effort.take.aerial.ALL.daily.csv"
 ))
-if (check_file) {
+if (check_file && !override) {
 	message(
 		"Aerial daily events already exists. Skipping aerial daily events step."
 	)
@@ -122,7 +124,7 @@ check_file <- file.exists(file.path(
 	processed_path,
 	"dev_feral.swine.effort.take.snare.chronology.ALL.csv"
 ))
-if (check_file) {
+if (check_file && !override) {
 	message("Snare chronology already exists. Skipping snare chronology step.")
 } else {
 	message("Running snare chronology step...")
@@ -134,7 +136,7 @@ check_file <- file.exists(file.path(
 	processed_path,
 	"dev_feral.swine.effort.take.snare.ALL.daily.csv"
 ))
-if (check_file) {
+if (check_file && !override) {
 	message(
 		"Snare daily events already exists. Skipping snare daily events step."
 	)
