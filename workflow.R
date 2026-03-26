@@ -60,7 +60,7 @@ message("Trap Chronology done")
 
 check_file <- file.exists(file.path(
 	processed_path,
-	"dev_feral.swine.effort.take.traps.chronology.ALL.csv"
+	"dev_feral.swine.effort.take.trap.ALL.daily.events.csv"
 ))
 if (check_file) {
 	message(
@@ -68,7 +68,7 @@ if (check_file) {
 	)
 } else {
 	message("Running trap daily events step...")
-	source("R/2.1.Generate.Trap.Chronolgy.ALL.R")
+	source("R/2.2.Generate.Trap.Daily.Events.Chronology.R")
 }
 message("Trap Daily Events done")
 
