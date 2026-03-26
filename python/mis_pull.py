@@ -1,6 +1,3 @@
-print("Script to pull MIS data")
-
-print("Load libraries...")
 import oracledb
 import pandas as pd
 import os
@@ -9,8 +6,8 @@ import sys
 from datetime import datetime
 from dotenv import load_dotenv
 
+print("Script to pull MIS data")
 print("Libraries loaded.")
-
 
 start_time = datetime.now()
 
@@ -32,7 +29,7 @@ print(f"misdDSN loaded: {'Yes' if mis_dsn else 'No'}")
 def single(cursor):
     cursor.execute(
         """
-        SELECT
+        SELECT DISTINCT
             M2_WORK_TASK.ID AS WT_ID,
             M2_AGREEMENT_PROPERTY.AGRP_PRP_ID,
             M2_WORK_TASK.WT_AGRPROP_ID,
