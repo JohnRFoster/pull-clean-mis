@@ -169,9 +169,30 @@ write_csv(dat_prop, file.path(processed_path, out_name))
 # look up table
 lut <- make.property.lut(dat_prop)
 lut_property_acres <- lut |>
-  filter(TOTAL.LAND > 0)
+  filter(TOTAL.LAND > 0) |>
+  as_tibble()
+
+prop_info <- lut_property_acres |>
+  select(ST_NAME, CNTY_NAME, AGRP_PRP_ID) |>
+  distinct() |>
+  left_join(states_and_territories)
+
+# now we have filled in as much state and county information as we can
+# can't do anything about the records that don't have state/county information
+lut_property_acres2 <- left_join(
+  select(
+    lut_property_acres,
+    -ST_GSA_STATE_CD,
+    -CNTY_GSA_CNTY_CD,
+    -ST_NAME,
+    -CNTY_NAME
+  ),
+  prop_info
+) |>
+  mutate(FIPS = paste0(ST_GSA_STATE_CD, CNTY_GSA_CNTY_CD))
+
 
 out_name <- paste0(processed, "lut_property_acres.csv")
-write_csv(lut_property_acres, file.path(processed_path, out_name))
+write_csv(lut_property_acres2, file.path(processed_path, out_name))
 
 ## ----END DATA PREP----
