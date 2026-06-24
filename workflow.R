@@ -24,7 +24,8 @@ source("R/FNC.Misc.Utilities.R")
 readRenviron(".env")
 data_path <- Sys.getenv("dataPath")
 
-paths <- make_paths(data_path)
+mis_path <- file.path(data_path, "MIS")
+paths <- make_paths(mis_path)
 pull_date <- paths$pull_date
 processed_path <- paths$processed_path
 
