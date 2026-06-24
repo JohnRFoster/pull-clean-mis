@@ -666,7 +666,8 @@ raw_filter <- function(dat) {
     filter(
       DA_NAME == "SWINE, FERAL",
       WT_WORK_DATE >= "2000-01-01",
-      FATE_FATE == "KILLED"
+      FATE_FATE == "KILLED",
+      ST_NAME != "TEST STATE"
     )
   cols <- colnames(tmp)
   if ("CMP_QTY" %in% cols) {
