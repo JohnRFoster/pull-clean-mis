@@ -668,7 +668,18 @@ raw_filter <- function(dat) {
       WT_WORK_DATE >= "2000-01-01",
       FATE_FATE == "KILLED",
       ST_NAME != "TEST STATE"
+    ) |>
+    mutate(
+      CNTY_NAME = stringr::str_replace(CNTY_NAME, "^ST ", "ST. "),
+      CNTY_NAME = case_when(
+        CNTY_NAME == "SAINT CROIX" ~ "ST. CROIX",
+        ST_NAME == "PUERTO RICO" ~ "PUERTO RICO",
+        ST_NAME == "GUAM" ~ "GUAM",
+        ST_NAME == "HAWAII" & CNTY_NAME == "OAHU" ~ "HONOLULU",
+        .default = CNTY_NAME
+      )
     )
+
   cols <- colnames(tmp)
   if ("CMP_QTY" %in% cols) {
     tmp <- dplyr::rename(tmp, WTCM_QTY = CMP_QTY)

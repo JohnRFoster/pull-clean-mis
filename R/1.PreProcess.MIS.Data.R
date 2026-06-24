@@ -25,7 +25,8 @@ source("R/FNC.Misc.Utilities.R")
 readRenviron(".env")
 data_path <- Sys.getenv("dataPath")
 
-paths <- make_paths(data_path)
+mis_path <- file.path(data_path, "MIS")
+paths <- make_paths(mis_path)
 pull_date <- paths$pull_date
 read_path <- paths$read_path
 processed_path <- paths$processed_path
@@ -47,26 +48,87 @@ source("R/FNC.MIS.Pre.Process.R")
 csv_name <- "fs_national_all.csv"
 file_name <- file.path(read_path, csv_name)
 df <- read_csv(file_name)
-dat <- df |> raw_filter()
+dat <- df |>
+  raw_filter()
 
-territories <- c("PUERTO RICO", "VIRGIN ISLANDS", "GUAM")
+# do our best to fill in missing state and county codes so these records
+# don't get dropped because of NAs
+all_fips <- read_csv(file.path(data_path, "counties", "fips.csv")) |>
+  rename(
+    ST_GSA_STATE_CD = st_gsa_state_cd,
+    CNTY_NAME = cnty_name,
+    ST_ABBR = state_abr
+  ) |>
+  mutate(ST_GSA_STATE_CD = as.character(ST_GSA_STATE_CD))
 
-all_state_codes <- dat |>
-  select(ST_NAME, ST_GSA_STATE_CD) |>
-  distinct() |>
-  filter(!ST_NAME %in% territories)
+state_abbr <- read_csv("data/stateAbbreviations.csv") |>
+  mutate(ST_NAME = toupper(ST_NAME))
 
-territory_codes <- tibble(
-  ST_NAME = territories,
-  ST_GSA_STATE_CD = c("61", "62", "63")
+# need to seperate states from territories
+territories <- c(
+  "AMERICAN SAMOA",
+  "GUAM",
+  "NORTHERN MARIANA ISLANDS",
+  "PUERTO RICO",
+  "VIRGIN ISLANDS"
 )
 
-states_and_territories <- bind_rows(all_state_codes, territory_codes)
+all_state_codes <- dat |>
+  filter(!ST_NAME %in% territories) |>
+  select(ST_NAME, CNTY_NAME, ST_GSA_STATE_CD, CNTY_GSA_CNTY_CD) |>
+  distinct() |>
+  left_join(state_abbr)
 
+state_lut <- left_join(all_fips, state_abbr) |>
+  mutate(
+    ST_GSA_STATE_CD = sprintf("%02d", as.numeric(ST_GSA_STATE_CD)),
+    CNTY_NAME = case_when(
+      (ST_NAME == "VIRGIN ISLANDS" &
+        grepl(" ISLAND", CNTY_NAME)) ~ stringr::str_replace(
+        CNTY_NAME,
+        " ISLAND",
+        ""
+      ),
+      .default = CNTY_NAME
+    )
+  )
+
+correct_s_codes <- left_join(all_state_codes, state_lut) |>
+  select(-CNTY_GSA_CNTY_CD) |>
+  rename(CNTY_GSA_CNTY_CD = countyfp)
+
+all_territory_codes <- dat |>
+  filter(ST_NAME %in% territories) |>
+  select(ST_NAME, CNTY_NAME) |>
+  distinct()
+
+# Puerto Rico is being considered as one county
+# need to manually adjust the codes
+
+correct_t_codes <- left_join(all_territory_codes, state_lut) |>
+  mutate(
+    ST_ABBR = case_when(ST_NAME == "PUERTO RICO" ~ "PR", .default = ST_ABBR),
+    ST_GSA_STATE_CD = case_when(
+      ST_NAME == "PUERTO RICO" ~ "72",
+      .default = ST_GSA_STATE_CD
+    ),
+    countyfp = case_when(ST_NAME == "PUERTO RICO" ~ "010", .default = countyfp),
+  ) |>
+  rename(CNTY_GSA_CNTY_CD = countyfp)
+
+states_and_territories <- bind_rows(correct_s_codes, correct_t_codes) |>
+  distinct()
+
+prop_info <- dat |>
+  select(ST_NAME, CNTY_NAME, WT_ID, AGRP_PRP_ID, WT_AGRPROP_ID, PRP_NAME) |>
+  distinct() |>
+  left_join(states_and_territories)
+
+# now we have filled in as much state and county information as we can
+# can't do anything about the records that don't have state/county information
 dat <- left_join(
-  select(dat, -ST_GSA_STATE_CD),
-  states_and_territories,
-  by = "ST_NAME"
+  select(dat, -ST_GSA_STATE_CD, -CNTY_GSA_CNTY_CD, -ST_NAME, -CNTY_NAME),
+  prop_info
 )
 
 #--Property Data
