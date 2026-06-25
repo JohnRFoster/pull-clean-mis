@@ -141,6 +141,23 @@ all_methods <- rbind.data.frame(dat_aerial, dat_firearms, dat_trap, dat_snare)
 all_methods$end.date <- as.Date(all_methods$end.date)
 all_methods$start.date <- as.Date(all_methods$start.date)
 
+all_methods <- all_methods |>
+  as_tibble() |>
+  mutate(
+    st_gsa_state_cd = as.character(st_gsa_state_cd),
+    cnty_gsa_cnty_cd = as.character(cnty_gsa_cnty_cd),
+    st_gsa_state_cd = sprintf("%02s", st_gsa_state_cd),
+    cnty_gsa_cnty_cd = sprintf("%03s", cnty_gsa_cnty_cd)
+  ) |>
+  mutate(
+    cnty_name = stringr::str_replace(cnty_name, "^ST ", "ST. "),
+    cnty_name = if_else(cnty_name == "SAINT CROIX", "ST. CROIX", cnty_name)
+  ) |>
+  mutate(
+    cnty_name = replace_when(cnty_name, st_name == "PUERTO RICO" ~ "PUERTO RICO"),
+    cnty_name = replace_when(cnty_name, st_name == "GUAM" ~ "GUAM"),
+    cnty_name = replace_when(cnty_name, st_name == "HAWAII" & cnty_name == "OAHU" ~ "HONOLULU")
+  )
 
 colnames(all_methods)[which(
   colnames(all_methods) %in% "total.land"
@@ -154,6 +171,82 @@ sum(c(
 ))
 
 nrow(all_methods)
+
+all_fips <- readr::read_csv(file.path(data_path, "counties", "fips.csv")) |>
+  mutate(st_gsa_state_cd = as.character(st_gsa_state_cd)) |>
+  dplyr::rename(st_abbr = state_abr)
+
+state_abbr <- readr::read_csv("data/stateAbbreviations.csv") |>
+  mutate(ST_NAME = toupper(ST_NAME)) |>
+  dplyr::rename(st_name = ST_NAME, st_abbr = ST_ABBR)
+
+# need to seperate states from territories
+territories <- c(
+  "AMERICAN SAMOA",
+  "GUAM",
+  "NORTHERN MARIANA ISLANDS",
+  "PUERTO RICO",
+  "VIRGIN ISLANDS"
+)
+
+all_state_codes <- all_methods |>
+  as_tibble() |>
+  filter(!st_name %in% territories) |>
+  select(st_name, cnty_name, st_gsa_state_cd, cnty_gsa_cnty_cd) |>
+  distinct() |>
+  left_join(state_abbr)
+
+state_lut <- left_join(all_fips, state_abbr) |>
+  mutate(
+    st_gsa_state_cd = sprintf("%02d", as.numeric(st_gsa_state_cd)),
+    cnty_name = case_when(
+      (st_name == "VIRGIN ISLANDS" &
+        grepl(" ISLAND", cnty_name)) ~ stringr::str_replace(
+        cnty_name,
+        " ISLAND",
+        ""
+      ),
+      .default = cnty_name
+    )
+  )
+
+correct_s_codes <- left_join(all_state_codes, state_lut) |>
+  select(-cnty_gsa_cnty_cd) |>
+  dplyr::rename(cnty_gsa_cnty_cd = countyfp)
+
+all_territory_codes <- all_methods |>
+  filter(st_name %in% territories) |>
+  select(st_name, cnty_name) |>
+  distinct()
+
+# Puerto Rico is being considered as one county
+# need to manually adjust the codes
+
+correct_t_codes <- left_join(all_territory_codes, state_lut) |>
+  mutate(
+    st_abbr = case_when(st_name == "PUERTO RICO" ~ "PR", .default = st_abbr),
+    st_gsa_state_cd = case_when(
+      st_name == "PUERTO RICO" ~ "72",
+      .default = st_gsa_state_cd
+    ),
+    countyfp = case_when(st_name == "PUERTO RICO" ~ "010", .default = countyfp),
+  ) |>
+  dplyr::rename(cnty_gsa_cnty_cd = countyfp)
+
+states_and_territories <- bind_rows(correct_s_codes, correct_t_codes) |>
+  distinct()
+
+prop_info <- all_methods |>
+  select(st_name, cnty_name, agrp_prp_id, alws_agrprop_id) |>
+  distinct() |>
+  left_join(states_and_territories)
+
+# now we have filled in as much state and county information as we can
+# can't do anything about the records that don't have state/county information
+all_methods <- left_join(
+  select(all_methods, -st_gsa_state_cd, -cnty_gsa_cnty_cd, -st_name, -cnty_name),
+  prop_info
+)
 
 all_methods <- all_methods[complete.cases(all_methods), ]
 nrow(all_methods)

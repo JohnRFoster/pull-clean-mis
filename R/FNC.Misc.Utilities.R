@@ -478,8 +478,7 @@ break.up.long.events <- function(
     order(
       trap.harvest.chronology$AGRP_PRP_ID,
       trap.harvest.chronology$WT_WORK_DATE
-    ),
-    ,
+    ), ,
     drop = FALSE
   ]
   tmp.vec <- unique(trap.harvest.chronology$AGRP_PRP_ID)
@@ -661,8 +660,8 @@ get_latest_pull_date <- function(raw_dir) {
 }
 
 # raw data filter
-raw_filter <- function(dat) {
-  tmp <- dat |>
+raw_filter <- function(df) {
+  tmp <- df |>
     filter(
       DA_NAME == "SWINE, FERAL",
       WT_WORK_DATE >= "2000-01-01",
@@ -671,13 +670,12 @@ raw_filter <- function(dat) {
     ) |>
     mutate(
       CNTY_NAME = stringr::str_replace(CNTY_NAME, "^ST ", "ST. "),
-      CNTY_NAME = case_when(
-        CNTY_NAME == "SAINT CROIX" ~ "ST. CROIX",
-        ST_NAME == "PUERTO RICO" ~ "PUERTO RICO",
-        ST_NAME == "GUAM" ~ "GUAM",
-        ST_NAME == "HAWAII" & CNTY_NAME == "OAHU" ~ "HONOLULU",
-        .default = CNTY_NAME
-      )
+      CNTY_NAME = if_else(CNTY_NAME == "SAINT CROIX", "ST. CROIX", CNTY_NAME)
+    ) |>
+    mutate(
+      CNTY_NAME = replace_when(CNTY_NAME, ST_NAME == "PUERTO RICO" ~ "PUERTO RICO"),
+      CNTY_NAME = replace_when(CNTY_NAME, ST_NAME == "GUAM" ~ "GUAM"),
+      CNTY_NAME = replace_when(CNTY_NAME, ST_NAME == "HAWAII" & CNTY_NAME == "OAHU" ~ "HONOLULU")
     )
 
   cols <- colnames(tmp)

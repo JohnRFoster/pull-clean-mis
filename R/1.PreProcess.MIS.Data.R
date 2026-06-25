@@ -48,13 +48,12 @@ source("R/FNC.MIS.Pre.Process.R")
 csv_name <- "fs_national_all.csv"
 file_name <- file.path(read_path, csv_name)
 df <- read_csv(file_name)
-dat <- df |>
-  raw_filter()
+dat <- raw_filter(df)
 
 # do our best to fill in missing state and county codes so these records
 # don't get dropped because of NAs
 all_fips <- read_csv(file.path(data_path, "counties", "fips.csv")) |>
-  rename(
+  dplyr::rename(
     ST_GSA_STATE_CD = st_gsa_state_cd,
     CNTY_NAME = cnty_name,
     ST_ABBR = state_abr
@@ -95,7 +94,7 @@ state_lut <- left_join(all_fips, state_abbr) |>
 
 correct_s_codes <- left_join(all_state_codes, state_lut) |>
   select(-CNTY_GSA_CNTY_CD) |>
-  rename(CNTY_GSA_CNTY_CD = countyfp)
+  dplyr::rename(CNTY_GSA_CNTY_CD = countyfp)
 
 all_territory_codes <- dat |>
   filter(ST_NAME %in% territories) |>
@@ -114,7 +113,7 @@ correct_t_codes <- left_join(all_territory_codes, state_lut) |>
     ),
     countyfp = case_when(ST_NAME == "PUERTO RICO" ~ "010", .default = countyfp),
   ) |>
-  rename(CNTY_GSA_CNTY_CD = countyfp)
+  dplyr::rename(CNTY_GSA_CNTY_CD = countyfp)
 
 states_and_territories <- bind_rows(correct_s_codes, correct_t_codes) |>
   distinct()
@@ -158,16 +157,27 @@ dat_prop <- read_csv(file.path(read_path, file_name))
 dat_prop <- distinct(dat_prop)
 dat_prop <- alter.column.names(dat_prop)
 
-dat_prop <- left_join(
-  select(dat_prop, -ST_GSA_STATE_CD),
+dat_prop_tmp <- dat_prop |>
+  mutate(
+    CNTY_NAME = stringr::str_replace(CNTY_NAME, "^ST ", "ST. "),
+    CNTY_NAME = if_else(CNTY_NAME == "SAINT CROIX", "ST. CROIX", CNTY_NAME)
+  ) |>
+  mutate(
+    CNTY_NAME = replace_when(CNTY_NAME, ST_NAME == "PUERTO RICO" ~ "PUERTO RICO"),
+    CNTY_NAME = replace_when(CNTY_NAME, ST_NAME == "GUAM" ~ "GUAM"),
+    CNTY_NAME = replace_when(CNTY_NAME, ST_NAME == "HAWAII" & CNTY_NAME == "OAHU" ~ "HONOLULU")
+  )
+
+prop_codes <- left_join(
+  select(dat_prop_tmp, -ST_GSA_STATE_CD, -CNTY_GSA_CNTY_CD),
   states_and_territories
-)
+) |> glimpse()
 
 out_name <- paste0(processed, file_name)
-write_csv(dat_prop, file.path(processed_path, out_name))
+write_csv(prop_codes, file.path(processed_path, out_name))
 
 # look up table
-lut <- make.property.lut(dat_prop)
+lut <- make.property.lut(prop_codes)
 lut_property_acres <- lut |>
   filter(TOTAL.LAND > 0) |>
   as_tibble()
